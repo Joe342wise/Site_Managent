@@ -9,6 +9,7 @@ import LoginPage from './pages/Login';
 import DashboardPage from './pages/Dashboard';
 import SitesPage from './pages/Sites';
 import EstimatesPage from './pages/Estimates';
+import EstimateDetails from './pages/EstimateDetails';
 import ActualsPage from './pages/Actuals';
 import VariancePage from './pages/Variance';
 import ReportsPage from './pages/Reports';
@@ -94,6 +95,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute>
               <EstimatesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/estimates/:estimateId"
+          element={
+            <ProtectedRoute>
+              <EstimateDetails />
             </ProtectedRoute>
           }
         />

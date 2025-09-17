@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   FileText,
   Plus,
@@ -21,6 +22,7 @@ import EstimateModal from '../components/EstimateModal';
 import toast from 'react-hot-toast';
 
 const EstimatesPage: React.FC = () => {
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -245,7 +247,11 @@ const EstimatesPage: React.FC = () => {
       {/* Estimates Grid */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {estimates.map((estimate) => (
-          <div key={estimate.estimate_id} className="bg-white overflow-hidden shadow rounded-lg">
+          <div
+            key={estimate.estimate_id}
+            className="bg-white overflow-hidden shadow rounded-lg cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate(`/estimates/${estimate.estimate_id}`)}
+          >
             <div className="px-4 py-5 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900 truncate">
