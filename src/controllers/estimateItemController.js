@@ -1,0 +1,419 @@
+const { pool } = require('../config/database');
+const { asyncHandler } = require('../middleware/errorHandler');
+
+const getAllCategories = asyncHandler(async (req, res) => {
+  const [categories] = await pool.execute(
+    'SELECT * FROM categories ORDER BY sort_order, name'
+  );
+
+  res.json({
+    success: true,
+    data: categories
+  });
+});
+
+const getEstimateItems = asyncHandler(async (req, res) => {
+  const { estimate_id } = req.params;
+  const { category_id } = req.query;
+
+  let query = `
+    SELECT ei.*,
+           c.name as category_name,
+           (SELECT COUNT(*) FROM actuals a WHERE a.item_id = ei.item_id) as has_actuals,
+           (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) as total_actual_cost
+    FROM estimate_items ei
+    LEFT JOIN categories c ON ei.category_id = c.category_id
+    WHERE ei.estimate_id = ?
+  `;
+
+  const params = [estimate_id];
+
+  if (category_id) {
+    query += ' AND ei.category_id = ?';
+    params.push(category_id);
+  }
+
+  query += ' ORDER BY c.sort_order, ei.item_id';
+
+  const [items] = await pool.execute(query, params);
+
+  const [summary] = await pool.execute(`
+    SELECT
+      COUNT(*) as total_items,
+      SUM(total_estimated) as total_estimated,
+      COUNT(DISTINCT category_id) as categories_used,
+      (SELECT COUNT(*) FROM actuals a
+       JOIN estimate_items ei ON a.item_id = ei.item_id
+       WHERE ei.estimate_id = ?) as items_with_actuals
+    FROM estimate_items
+    WHERE estimate_id = ?
+  `, [estimate_id, estimate_id]);
+
+  res.json({
+    success: true,
+    data: {
+      items,
+      summary: summary[0]
+    }
+  });
+});
+
+const getEstimateItemById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const [items] = await pool.execute(`
+    SELECT ei.*,
+           c.name as category_name,
+           e.title as estimate_title,
+           s.name as site_name
+    FROM estimate_items ei
+    LEFT JOIN categories c ON ei.category_id = c.category_id
+    LEFT JOIN estimates e ON ei.estimate_id = e.estimate_id
+    LEFT JOIN sites s ON e.site_id = s.site_id
+    WHERE ei.item_id = ?
+  `, [id]);
+
+  if (items.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'Estimate item not found'
+    });
+  }
+
+  const [actuals] = await pool.execute(`
+    SELECT a.*,
+           u.username as recorded_by_username
+    FROM actuals a
+    LEFT JOIN users u ON a.recorded_by = u.user_id
+    WHERE a.item_id = ?
+    ORDER BY a.date_recorded DESC
+  `, [id]);
+
+  res.json({
+    success: true,
+    data: {
+      ...items[0],
+      actuals
+    }
+  });
+});
+
+const createEstimateItem = asyncHandler(async (req, res) => {
+  const { estimate_id, description, category_id, quantity = 1, unit, unit_price, notes } = req.body;
+
+  const [estimateCheck] = await pool.execute(
+    'SELECT estimate_id FROM estimates WHERE estimate_id = ?',
+    [estimate_id]
+  );
+
+  if (estimateCheck.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Estimate not found'
+    });
+  }
+
+  const [categoryCheck] = await pool.execute(
+    'SELECT category_id FROM categories WHERE category_id = ?',
+    [category_id]
+  );
+
+  if (categoryCheck.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Category not found'
+    });
+  }
+
+  const [result] = await pool.execute(
+    'INSERT INTO estimate_items (estimate_id, description, category_id, quantity, unit, unit_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [estimate_id, description, category_id, quantity, unit, unit_price, notes]
+  );
+
+  await pool.execute(
+    'UPDATE estimates SET total_estimated = (SELECT SUM(total_estimated) FROM estimate_items WHERE estimate_id = ?) WHERE estimate_id = ?',
+    [estimate_id, estimate_id]
+  );
+
+  const [newItem] = await pool.execute(`
+    SELECT ei.*,
+           c.name as category_name,
+           0 as has_actuals,
+           0 as total_actual_cost
+    FROM estimate_items ei
+    LEFT JOIN categories c ON ei.category_id = c.category_id
+    WHERE ei.item_id = ?
+  `, [result.insertId]);
+
+  res.status(201).json({
+    success: true,
+    message: 'Estimate item created successfully',
+    data: newItem[0]
+  });
+});
+
+const updateEstimateItem = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { description, category_id, quantity, unit, unit_price, notes } = req.body;
+
+  const [existingItem] = await pool.execute(
+    'SELECT estimate_id FROM estimate_items WHERE item_id = ?',
+    [id]
+  );
+
+  if (existingItem.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'Estimate item not found'
+    });
+  }
+
+  const estimate_id = existingItem[0].estimate_id;
+
+  const updates = [];
+  const params = [];
+
+  if (description !== undefined) {
+    updates.push('description = ?');
+    params.push(description);
+  }
+  if (category_id !== undefined) {
+    const [categoryCheck] = await pool.execute(
+      'SELECT category_id FROM categories WHERE category_id = ?',
+      [category_id]
+    );
+
+    if (categoryCheck.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    updates.push('category_id = ?');
+    params.push(category_id);
+  }
+  if (quantity !== undefined) {
+    updates.push('quantity = ?');
+    params.push(quantity);
+  }
+  if (unit !== undefined) {
+    updates.push('unit = ?');
+    params.push(unit);
+  }
+  if (unit_price !== undefined) {
+    updates.push('unit_price = ?');
+    params.push(unit_price);
+  }
+  if (notes !== undefined) {
+    updates.push('notes = ?');
+    params.push(notes);
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'No valid fields to update'
+    });
+  }
+
+  updates.push('updated_at = CURRENT_TIMESTAMP');
+  params.push(id);
+
+  const [result] = await pool.execute(
+    `UPDATE estimate_items SET ${updates.join(', ')} WHERE item_id = ?`,
+    params
+  );
+
+  if (result.affectedRows === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'Estimate item not found'
+    });
+  }
+
+  await pool.execute(
+    'UPDATE estimates SET total_estimated = (SELECT SUM(total_estimated) FROM estimate_items WHERE estimate_id = ?) WHERE estimate_id = ?',
+    [estimate_id, estimate_id]
+  );
+
+  const [updatedItem] = await pool.execute(`
+    SELECT ei.*,
+           c.name as category_name,
+           (SELECT COUNT(*) FROM actuals a WHERE a.item_id = ei.item_id) as has_actuals,
+           (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) as total_actual_cost
+    FROM estimate_items ei
+    LEFT JOIN categories c ON ei.category_id = c.category_id
+    WHERE ei.item_id = ?
+  `, [id]);
+
+  res.json({
+    success: true,
+    message: 'Estimate item updated successfully',
+    data: updatedItem[0]
+  });
+});
+
+const deleteEstimateItem = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const [existingItem] = await pool.execute(
+    'SELECT estimate_id FROM estimate_items WHERE item_id = ?',
+    [id]
+  );
+
+  if (existingItem.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'Estimate item not found'
+    });
+  }
+
+  const estimate_id = existingItem[0].estimate_id;
+
+  const [actualCount] = await pool.execute(
+    'SELECT COUNT(*) as count FROM actuals WHERE item_id = ?',
+    [id]
+  );
+
+  if (actualCount[0].count > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cannot delete item with recorded actuals. Delete actuals first.'
+    });
+  }
+
+  const [result] = await pool.execute(
+    'DELETE FROM estimate_items WHERE item_id = ?',
+    [id]
+  );
+
+  if (result.affectedRows === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'Estimate item not found'
+    });
+  }
+
+  await pool.execute(
+    'UPDATE estimates SET total_estimated = (SELECT COALESCE(SUM(total_estimated), 0) FROM estimate_items WHERE estimate_id = ?) WHERE estimate_id = ?',
+    [estimate_id, estimate_id]
+  );
+
+  res.json({
+    success: true,
+    message: 'Estimate item deleted successfully'
+  });
+});
+
+const bulkCreateEstimateItems = asyncHandler(async (req, res) => {
+  const { estimate_id } = req.params;
+  const { items } = req.body;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Items array is required and must not be empty'
+    });
+  }
+
+  const [estimateCheck] = await pool.execute(
+    'SELECT estimate_id FROM estimates WHERE estimate_id = ?',
+    [estimate_id]
+  );
+
+  if (estimateCheck.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Estimate not found'
+    });
+  }
+
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const createdItems = [];
+
+    for (const item of items) {
+      const { description, category_id, quantity = 1, unit, unit_price, notes } = item;
+
+      const [result] = await connection.execute(
+        'INSERT INTO estimate_items (estimate_id, description, category_id, quantity, unit, unit_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [estimate_id, description, category_id, quantity, unit, unit_price, notes]
+      );
+
+      const [newItem] = await connection.execute(`
+        SELECT ei.*,
+               c.name as category_name
+        FROM estimate_items ei
+        LEFT JOIN categories c ON ei.category_id = c.category_id
+        WHERE ei.item_id = ?
+      `, [result.insertId]);
+
+      createdItems.push(newItem[0]);
+    }
+
+    await connection.execute(
+      'UPDATE estimates SET total_estimated = (SELECT SUM(total_estimated) FROM estimate_items WHERE estimate_id = ?) WHERE estimate_id = ?',
+      [estimate_id, estimate_id]
+    );
+
+    await connection.commit();
+
+    res.status(201).json({
+      success: true,
+      message: `${createdItems.length} estimate items created successfully`,
+      data: createdItems
+    });
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+});
+
+const getItemsByCategory = asyncHandler(async (req, res) => {
+  const { estimate_id } = req.params;
+
+  const [itemsByCategory] = await pool.execute(`
+    SELECT
+      c.category_id,
+      c.name as category_name,
+      c.description as category_description,
+      COUNT(ei.item_id) as item_count,
+      SUM(ei.total_estimated) as category_total,
+      JSON_ARRAYAGG(
+        JSON_OBJECT(
+          'item_id', ei.item_id,
+          'description', ei.description,
+          'quantity', ei.quantity,
+          'unit', ei.unit,
+          'unit_price', ei.unit_price,
+          'total_estimated', ei.total_estimated
+        )
+      ) as items
+    FROM categories c
+    LEFT JOIN estimate_items ei ON c.category_id = ei.category_id AND ei.estimate_id = ?
+    GROUP BY c.category_id, c.name, c.description
+    ORDER BY c.sort_order
+  `, [estimate_id]);
+
+  res.json({
+    success: true,
+    data: itemsByCategory
+  });
+});
+
+module.exports = {
+  getAllCategories,
+  getEstimateItems,
+  getEstimateItemById,
+  createEstimateItem,
+  updateEstimateItem,
+  deleteEstimateItem,
+  bulkCreateEstimateItems,
+  getItemsByCategory
+};
