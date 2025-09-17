@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { Plus, Edit, Trash2, MapPin, Calendar, DollarSign, Search, Filter, X } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Calendar, DollarSign, Search, Filter } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Site, CreateSiteRequest } from '../types';
+import { Site } from '../types';
 import { formatCurrency, formatDate, getStatusColor } from '../utils';
 import LoadingSpinner from '../components/LoadingSpinner';
-import SiteEditModal from '../components/SiteEditModal';
 import toast from 'react-hot-toast';
 
 const SitesPage: React.FC = () => {
@@ -13,8 +12,6 @@ const SitesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [statusDropdownOpen, setStatusDropdownOpen] = useState<number | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingSite, setEditingSite] = useState<Site | null>(null);
   const queryClient = useQueryClient();
 
   const { data: sitesData, isLoading } = useQuery(
@@ -43,44 +40,6 @@ const SitesPage: React.FC = () => {
     }
   );
 
-  const updateSiteMutation = useMutation(
-    ({ id, data }: { id: number; data: Partial<CreateSiteRequest> }) =>
-      apiService.updateSite(id, data),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('sites');
-        setEditingSite(null);
-        toast.success('Site updated successfully');
-      },
-      onError: (error) => {
-        toast.error('Failed to update site');
-        console.error('Update error:', error);
-      },
-    }
-  );
-
-  const createSiteMutation = useMutation(
-    (data: CreateSiteRequest) => apiService.createSite(data),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('sites');
-        setShowCreateModal(false);
-        toast.success('Site created successfully');
-      },
-      onError: (error) => {
-        toast.error('Failed to create site');
-        console.error('Create error:', error);
-      },
-    }
-  );
-
-  // Close dropdown when clicking outside - MUST be before any early returns
-  React.useEffect(() => {
-    const handleClickOutside = () => setStatusDropdownOpen(null);
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -90,6 +49,13 @@ const SitesPage: React.FC = () => {
   }
 
   const sites = sitesData?.sites || [];
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = () => setStatusDropdownOpen(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const handleStatusChange = (siteId: number, newStatus: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled') => {
     updateStatusMutation.mutate({ id: siteId, status: newStatus });
@@ -111,16 +77,6 @@ const SitesPage: React.FC = () => {
           <p className="mt-2 text-sm text-gray-700">
             Manage your construction projects and sites
           </p>
-        </div>
-        <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-          <button
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="block rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-          >
-            <Plus className="h-4 w-4 inline mr-2" />
-            Add Site
-          </button>
         </div>
       </div>
 
@@ -237,39 +193,6 @@ const SitesPage: React.FC = () => {
                     Budget: {formatCurrency(site.budget_limit)}
                   </div>
                 )}
-
-                <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Estimates</dt>
-                    <dd className="text-sm text-gray-900">{site.estimate_count || 0}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Total Value</dt>
-                    <dd className="text-sm text-gray-900">
-                      {formatCurrency(site.total_estimated_amount || 0)}
-                    </dd>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-5 flex justify-end space-x-2">
-                <button
-                  onClick={() => setEditingSite(site)}
-                  className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                  title="Edit details (name, location, dates, budget)"
-                >
-                  <Edit className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm('Are you sure you want to delete this site?')) {
-                      alert('Delete functionality - Coming soon!');
-                    }
-                  }}
-                  className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-red-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
               </div>
             </div>
           </div>
@@ -285,28 +208,6 @@ const SitesPage: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Edit Site Modal */}
-      {(showCreateModal || editingSite) && (
-        <SiteEditModal
-          isOpen={showCreateModal || !!editingSite}
-          site={editingSite}
-          onClose={() => {
-            setShowCreateModal(false);
-            setEditingSite(null);
-          }}
-          onSubmit={(data) => {
-            if (editingSite) {
-              updateSiteMutation.mutate({ id: editingSite.site_id, data });
-            } else {
-              // Set default status to 'planning' for new sites
-              const createData = { ...data, status: 'planning' as const };
-              createSiteMutation.mutate(createData);
-            }
-          }}
-          isLoading={editingSite ? updateSiteMutation.isLoading : createSiteMutation.isLoading}
-        />
-      )}
     </div>
   );
 };
