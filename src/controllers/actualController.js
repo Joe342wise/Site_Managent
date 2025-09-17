@@ -66,9 +66,9 @@ const getAllActuals = asyncHandler(async (req, res) => {
     countQuery += whereClause;
   }
 
-  query += ' ORDER BY a.date_recorded DESC LIMIT ? OFFSET ?';
+  query += ` ORDER BY a.date_recorded DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
 
-  const [actuals] = await pool.execute(query, [...params, parseInt(limit), offset]);
+  const [actuals] = await pool.execute(query, params);
   const [countResult] = await pool.execute(countQuery, params);
 
   const total = countResult[0].total;

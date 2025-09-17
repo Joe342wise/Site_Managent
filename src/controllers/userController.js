@@ -29,9 +29,9 @@ const getAllUsers = asyncHandler(async (req, res) => {
     countQuery += whereClause;
   }
 
-  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  query += ` ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
 
-  const [users] = await pool.execute(query, [...params, parseInt(limit), offset]);
+  const [users] = await pool.execute(query, params);
   const [countResult] = await pool.execute(countQuery, params);
 
   const total = countResult[0].total;

@@ -44,9 +44,9 @@ const getAllEstimates = asyncHandler(async (req, res) => {
     countQuery += whereClause;
   }
 
-  query += ' ORDER BY e.date_created DESC LIMIT ? OFFSET ?';
+  query += ` ORDER BY e.date_created DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
 
-  const [estimates] = await pool.execute(query, [...params, parseInt(limit), offset]);
+  const [estimates] = await pool.execute(query, params);
   const [countResult] = await pool.execute(countQuery, params);
 
   const total = countResult[0].total;

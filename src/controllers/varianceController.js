@@ -274,8 +274,8 @@ const getTopVariances = asyncHandler(async (req, res) => {
     JOIN categories c ON ei.category_id = c.category_id
     WHERE a.variance_amount IS NOT NULL ${conditions}
     ORDER BY ABS(a.variance_amount) DESC
-    LIMIT ?
-  `, [parseInt(limit)]);
+    LIMIT ${parseInt(limit)}
+  `);
 
   res.json({
     success: true,
