@@ -199,6 +199,7 @@ const SitesPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const { data: sitesData, isLoading } = useQuery(
@@ -242,6 +243,18 @@ const SitesPage: React.FC = () => {
     },
   });
 
+  const updateStatusMutation = useMutation(
+    ({ id, status }: { id: number; status: string }) =>
+      apiService.updateSite(id, { status }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('sites');
+        setStatusDropdownOpen(null);
+        toast.success('Status updated successfully');
+      },
+    }
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -252,6 +265,24 @@ const SitesPage: React.FC = () => {
 
   const sites = sitesData?.sites || [];
   const pagination = sitesData?.pagination;
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = () => setStatusDropdownOpen(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  const handleStatusChange = (siteId: number, newStatus: string) => {
+    updateStatusMutation.mutate({ id: siteId, status: newStatus });
+  };
+
+  const statusOptions = [
+    { value: 'planning', label: 'Planning', color: 'bg-yellow-100 text-yellow-800' },
+    { value: 'active', label: 'Active', color: 'bg-green-100 text-green-800' },
+    { value: 'on_hold', label: 'On Hold', color: 'bg-orange-100 text-orange-800' },
+    { value: 'completed', label: 'Completed', color: 'bg-blue-100 text-blue-800' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -318,9 +349,55 @@ const SitesPage: React.FC = () => {
                 <h3 className="text-lg font-medium text-gray-900 truncate">
                   {site.name}
                 </h3>
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(site.status)}`}>
-                  {site.status.replace('_', ' ')}
-                </span>
+                <div className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStatusDropdownOpen(
+                        statusDropdownOpen === site.site_id ? null : site.site_id
+                      );
+                    }}
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${getStatusColor(site.status)}`}
+                  >
+                    {site.status.replace('_', ' ')}
+                    <svg className="ml-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+
+                  {statusDropdownOpen === site.site_id && (
+                    <div className="absolute top-full right-0 mt-1 w-32 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                      <div className="py-1">
+                        {statusOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (option.value !== site.status) {
+                                handleStatusChange(site.site_id, option.value);
+                              } else {
+                                setStatusDropdownOpen(null);
+                              }
+                            }}
+                            disabled={updateStatusMutation.isLoading}
+                            className={`block w-full text-left px-4 py-2 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed ${
+                              option.value === site.status
+                                ? 'bg-gray-100 ' + option.color
+                                : 'text-gray-700'
+                            }`}
+                          >
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${option.color}`}>
+                              {option.label}
+                            </span>
+                            {option.value === site.status && (
+                              <span className="ml-2 text-blue-600">✓</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -361,6 +438,7 @@ const SitesPage: React.FC = () => {
                 <button
                   onClick={() => setEditingSite(site)}
                   className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                  title="Edit details (name, location, dates, budget)"
                 >
                   <Edit className="h-4 w-4" />
                 </button>
