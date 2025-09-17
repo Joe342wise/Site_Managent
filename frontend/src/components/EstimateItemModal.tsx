@@ -3,6 +3,7 @@ import { X, Package, Tag, Calculator, FileText } from 'lucide-react';
 import { useQuery } from 'react-query';
 import { EstimateItem, CreateEstimateItemRequest, Category } from '../types';
 import { apiService } from '../services/api';
+import { formatCurrency } from '../utils';
 
 interface EstimateItemModalProps {
   isOpen: boolean;
@@ -263,7 +264,7 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-700">Total Estimated:</span>
                     <span className="text-lg font-bold text-gray-900">
-                      ${calculateTotal().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {formatCurrency(calculateTotal())}
                     </span>
                   </div>
                 </div>

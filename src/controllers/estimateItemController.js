@@ -101,6 +101,49 @@ const getEstimateItemById = asyncHandler(async (req, res) => {
 const createEstimateItem = asyncHandler(async (req, res) => {
   const { estimate_id, description, category_id, quantity = 1, unit, unit_price, notes } = req.body;
 
+  // Validate required fields
+  if (!estimate_id) {
+    return res.status(400).json({
+      success: false,
+      message: 'Estimate ID is required'
+    });
+  }
+
+  if (!description || !description.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Description is required'
+    });
+  }
+
+  if (!category_id || category_id <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Category ID is required and must be greater than 0'
+    });
+  }
+
+  if (!unit || !unit.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Unit is required'
+    });
+  }
+
+  if (!unit_price || unit_price <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Unit price is required and must be greater than 0'
+    });
+  }
+
+  if (quantity <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Quantity must be greater than 0'
+    });
+  }
+
   const [estimateCheck] = await pool.execute(
     'SELECT estimate_id FROM estimates WHERE estimate_id = ?',
     [estimate_id]
@@ -127,7 +170,15 @@ const createEstimateItem = asyncHandler(async (req, res) => {
 
   const [result] = await pool.execute(
     'INSERT INTO estimate_items (estimate_id, description, category_id, quantity, unit, unit_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [estimate_id, description, category_id, quantity, unit, unit_price, notes]
+    [
+      parseInt(estimate_id),
+      description.trim(),
+      parseInt(category_id),
+      parseFloat(quantity),
+      unit.trim(),
+      parseFloat(unit_price),
+      notes && notes.trim() ? notes.trim() : null
+    ]
   );
 
   await pool.execute(
@@ -207,7 +258,7 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
   }
   if (notes !== undefined) {
     updates.push('notes = ?');
-    params.push(notes);
+    params.push(notes && notes.trim() ? notes : null);
   }
 
   if (updates.length === 0) {

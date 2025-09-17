@@ -81,7 +81,7 @@ const schemas = {
     quantity: Joi.number().positive().default(1),
     unit: Joi.string().required().max(50),
     unit_price: Joi.number().min(0).required(),
-    notes: Joi.string().optional()
+    notes: Joi.string().allow('').optional()
   }),
 
   updateEstimateItem: Joi.object({
@@ -90,7 +90,7 @@ const schemas = {
     quantity: Joi.number().positive().optional(),
     unit: Joi.string().max(50).optional(),
     unit_price: Joi.number().min(0).optional(),
-    notes: Joi.string().optional()
+    notes: Joi.string().allow('').optional()
   }),
 
   createActual: Joi.object({
