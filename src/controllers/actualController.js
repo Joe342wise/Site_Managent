@@ -71,21 +71,40 @@ const getAllActuals = asyncHandler(async (req, res) => {
   const [actuals] = await pool.execute(query, params);
   const [countResult] = await pool.execute(countQuery, params);
 
+  // Get summary statistics for the filtered results
+  let summaryQuery = `
+    SELECT
+      COUNT(*) as total_records,
+      SUM(a.total_actual) as total_actual,
+      SUM(ei.total_estimated) as total_estimated,
+      AVG(a.variance_percentage) as avg_variance_percentage
+    FROM actuals a
+    JOIN estimate_items ei ON a.item_id = ei.item_id
+    JOIN estimates e ON ei.estimate_id = e.estimate_id
+    JOIN sites s ON e.site_id = s.site_id
+  `;
+
+  if (whereConditions.length > 0) {
+    summaryQuery += ' WHERE ' + whereConditions.join(' AND ');
+  }
+
+  const [summaryResult] = await pool.execute(summaryQuery, params);
+
   const total = countResult[0].total;
   const totalPages = Math.ceil(total / parseInt(limit));
 
   res.json({
     success: true,
-    data: {
-      actuals,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages,
-        totalActuals: total,
-        hasNext: parseInt(page) < totalPages,
-        hasPrev: parseInt(page) > 1
-      }
-    }
+    data: actuals,
+    pagination: {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total,
+      totalPages,
+      hasNext: parseInt(page) < totalPages,
+      hasPrev: parseInt(page) > 1
+    },
+    summary: summaryResult[0]
   });
 });
 
@@ -129,6 +148,21 @@ const createActual = asyncHandler(async (req, res) => {
   const { item_id, actual_unit_price, actual_quantity, date_recorded = new Date(), notes } = req.body;
   const recorded_by = req.user.user_id;
 
+  // Validate required fields
+  if (!item_id || item_id <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Item ID is required and must be greater than 0'
+    });
+  }
+
+  if (!actual_unit_price || actual_unit_price <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Actual unit price is required and must be greater than 0'
+    });
+  }
+
   const [itemCheck] = await pool.execute(
     'SELECT item_id FROM estimate_items WHERE item_id = ?',
     [item_id]
@@ -143,7 +177,14 @@ const createActual = asyncHandler(async (req, res) => {
 
   const [result] = await pool.execute(
     'INSERT INTO actuals (item_id, actual_unit_price, actual_quantity, date_recorded, notes, recorded_by) VALUES (?, ?, ?, ?, ?, ?)',
-    [item_id, actual_unit_price, actual_quantity, date_recorded, notes, recorded_by]
+    [
+      parseInt(item_id),
+      parseFloat(actual_unit_price),
+      actual_quantity ? parseFloat(actual_quantity) : null,
+      date_recorded,
+      notes && notes.trim() ? notes.trim() : null,
+      recorded_by
+    ]
   );
 
   const [newActual] = await pool.execute(`

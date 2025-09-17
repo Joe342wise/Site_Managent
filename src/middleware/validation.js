@@ -98,14 +98,14 @@ const schemas = {
     actual_unit_price: Joi.number().min(0).required(),
     actual_quantity: Joi.number().positive().optional(),
     date_recorded: Joi.date().default(new Date()),
-    notes: Joi.string().optional()
+    notes: Joi.string().allow('').optional()
   }),
 
   updateActual: Joi.object({
     actual_unit_price: Joi.number().min(0).optional(),
     actual_quantity: Joi.number().positive().optional(),
     date_recorded: Joi.date().optional(),
-    notes: Joi.string().optional()
+    notes: Joi.string().allow('').optional()
   })
 };
 
