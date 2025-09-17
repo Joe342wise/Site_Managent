@@ -1,10 +1,11 @@
 import { format, parseISO, isValid } from 'date-fns';
+import { CURRENCY } from '../config/constants';
 
-// Format currency (GHS)
+// Format currency (configurable)
 export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-GH', {
+  return new Intl.NumberFormat(CURRENCY.locale, {
     style: 'currency',
-    currency: 'GHS',
+    currency: CURRENCY.code,
   }).format(amount);
 };
 
