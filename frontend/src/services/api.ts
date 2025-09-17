@@ -109,7 +109,7 @@ class ApiService {
   }
 
   // Sites
-  async getSites(params?: { page?: number; limit?: number; status?: string; search?: string }): Promise<PaginationResponse<Site>['data']> {
+  getSites = async (params?: { page?: number; limit?: number; status?: string; search?: string }): Promise<PaginationResponse<Site>['data']> => {
     const response: AxiosResponse<PaginationResponse<Site>> = await this.api.get('/sites', { params });
     return response.data.data;
   }
@@ -119,17 +119,17 @@ class ApiService {
     return response.data.data!;
   }
 
-  async createSite(data: CreateSiteRequest): Promise<Site> {
+  createSite = async (data: CreateSiteRequest): Promise<Site> => {
     const response: AxiosResponse<ApiResponse<Site>> = await this.api.post('/sites', data);
     return response.data.data!;
   }
 
-  async updateSite(id: number, data: Partial<CreateSiteRequest>): Promise<Site> {
+  updateSite = async (id: number, data: Partial<CreateSiteRequest>): Promise<Site> => {
     const response: AxiosResponse<ApiResponse<Site>> = await this.api.put(`/sites/${id}`, data);
     return response.data.data!;
   }
 
-  async deleteSite(id: number): Promise<void> {
+  deleteSite = async (id: number): Promise<void> => {
     await this.api.delete(`/sites/${id}`);
   }
 
