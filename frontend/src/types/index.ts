@@ -218,6 +218,7 @@ export interface DashboardStats {
   pending_estimates: number;
   total_estimated_value: number;
   total_actual_value: number;
+  total_purchased_value: number;
   overall_variance_percentage: number;
 }
 

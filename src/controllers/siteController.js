@@ -9,7 +9,12 @@ const getAllSites = asyncHandler(async (req, res) => {
     SELECT s.*,
            u.username as created_by_username,
            (SELECT COUNT(*) FROM estimates e WHERE e.site_id = s.site_id) as estimate_count,
-           (SELECT SUM(total_estimated) FROM estimates e WHERE e.site_id = s.site_id) as total_estimated_amount
+           (SELECT SUM(total_estimated) FROM estimates e WHERE e.site_id = s.site_id) as total_estimated_amount,
+           (SELECT SUM(a.actual_unit_price * COALESCE(a.actual_quantity, ei.quantity))
+            FROM actuals a
+            JOIN estimate_items ei ON a.item_id = ei.item_id
+            JOIN estimates e ON ei.estimate_id = e.estimate_id
+            WHERE e.site_id = s.site_id) as total_purchased_amount
     FROM sites s
     LEFT JOIN users u ON s.created_by = u.user_id
   `;
@@ -66,7 +71,12 @@ const getSiteById = asyncHandler(async (req, res) => {
     SELECT s.*,
            u.username as created_by_username,
            (SELECT COUNT(*) FROM estimates e WHERE e.site_id = s.site_id) as estimate_count,
-           (SELECT SUM(total_estimated) FROM estimates e WHERE e.site_id = s.site_id) as total_estimated_amount
+           (SELECT SUM(total_estimated) FROM estimates e WHERE e.site_id = s.site_id) as total_estimated_amount,
+           (SELECT SUM(a.actual_unit_price * COALESCE(a.actual_quantity, ei.quantity))
+            FROM actuals a
+            JOIN estimate_items ei ON a.item_id = ei.item_id
+            JOIN estimates e ON ei.estimate_id = e.estimate_id
+            WHERE e.site_id = s.site_id) as total_purchased_amount
     FROM sites s
     LEFT JOIN users u ON s.created_by = u.user_id
     WHERE s.site_id = ?
@@ -115,7 +125,8 @@ const createSite = asyncHandler(async (req, res) => {
     SELECT s.*,
            u.username as created_by_username,
            0 as estimate_count,
-           0 as total_estimated_amount
+           0 as total_estimated_amount,
+           0 as total_purchased_amount
     FROM sites s
     LEFT JOIN users u ON s.created_by = u.user_id
     WHERE s.site_id = ?
@@ -190,7 +201,12 @@ const updateSite = asyncHandler(async (req, res) => {
     SELECT s.*,
            u.username as created_by_username,
            (SELECT COUNT(*) FROM estimates e WHERE e.site_id = s.site_id) as estimate_count,
-           (SELECT SUM(total_estimated) FROM estimates e WHERE e.site_id = s.site_id) as total_estimated_amount
+           (SELECT SUM(total_estimated) FROM estimates e WHERE e.site_id = s.site_id) as total_estimated_amount,
+           (SELECT SUM(a.actual_unit_price * COALESCE(a.actual_quantity, ei.quantity))
+            FROM actuals a
+            JOIN estimate_items ei ON a.item_id = ei.item_id
+            JOIN estimates e ON ei.estimate_id = e.estimate_id
+            WHERE e.site_id = s.site_id) as total_purchased_amount
     FROM sites s
     LEFT JOIN users u ON s.created_by = u.user_id
     WHERE s.site_id = ?

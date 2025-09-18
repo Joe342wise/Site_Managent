@@ -46,25 +46,28 @@ const ActualsPage: React.FC = () => {
     }),
     {
       keepPreviousData: true,
+      refetchInterval: 30000, // Auto-refresh every 30 seconds like other pages
     }
   );
 
-  // Fetch sites for filter
+  // Fetch sites for filter (parallel with actuals)
   const { data: sitesData } = useQuery(
     ['sites-filter'],
     () => apiService.getSites({ limit: 100 }),
     {
       staleTime: 10 * 60 * 1000, // 10 minutes
+      refetchInterval: 30000, // Sync with actuals refresh
     }
   );
 
-  // Fetch estimates for selected site
+  // Fetch estimates for selected site (parallel when site selected)
   const { data: estimatesData } = useQuery(
     ['estimates-filter', selectedSite],
     () => selectedSite ? apiService.getEstimates({ site_id: selectedSite, limit: 100 }) : Promise.resolve({ data: [] }),
     {
       enabled: !!selectedSite,
       staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchInterval: selectedSite ? 30000 : false, // Sync refresh when site selected
     }
   );
 
@@ -74,6 +77,9 @@ const ActualsPage: React.FC = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['actuals']);
+        queryClient.invalidateQueries(['dashboard']);
+        queryClient.invalidateQueries(['sites']);
+        queryClient.invalidateQueries(['estimates']);
         setShowModal(false);
         toast.success('Purchase recorded successfully');
       },
@@ -90,6 +96,9 @@ const ActualsPage: React.FC = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['actuals']);
+        queryClient.invalidateQueries(['dashboard']);
+        queryClient.invalidateQueries(['sites']);
+        queryClient.invalidateQueries(['estimates']);
         setShowModal(false);
         setEditingActual(null);
         toast.success('Purchase record updated successfully');
@@ -106,6 +115,9 @@ const ActualsPage: React.FC = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['actuals']);
+        queryClient.invalidateQueries(['dashboard']);
+        queryClient.invalidateQueries(['sites']);
+        queryClient.invalidateQueries(['estimates']);
         toast.success('Purchase record deleted successfully');
       },
       onError: (error: any) => {

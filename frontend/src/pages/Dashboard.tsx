@@ -83,7 +83,14 @@ const DashboardPage: React.FC = () => {
       color: 'text-purple-600',
     },
     {
-      title: 'Overall Variance',
+      title: 'Purchased Value',
+      value: formatCurrency(dashboardStats?.total_purchased_value || 0),
+      icon: TrendingUp,
+      color: 'text-orange-600',
+      description: `vs ${formatCurrency(dashboardStats?.total_estimated_value || 0)} budgeted`,
+    },
+    {
+      title: 'Budget Variance',
       value: formatPercentage(dashboardStats?.overall_variance_percentage || 0),
       icon: TrendingUp,
       color: dashboardStats?.overall_variance_percentage > 0 ? 'text-red-600' : 'text-green-600',
@@ -101,7 +108,7 @@ const DashboardPage: React.FC = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
         {stats.map((stat, index) => (
           <StatCard key={index} {...stat} />
         ))}

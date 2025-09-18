@@ -362,6 +362,7 @@ class ApiService {
       pending_estimates: estimateStats.statistics?.draft_estimates || 0,
       total_estimated_value: estimateStats.statistics?.total_estimated_value || 0,
       total_actual_value: actualsStats.statistics?.total_actual_cost || 0,
+      total_purchased_value: actualsStats.statistics?.total_actual_cost || 0,
       overall_variance_percentage: actualsStats.statistics?.average_variance_percentage || 0,
     };
   }
