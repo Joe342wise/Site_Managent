@@ -135,7 +135,13 @@ const createEstimate = asyncHandler(async (req, res) => {
 
   const [result] = await pool.execute(
     'INSERT INTO estimates (site_id, title, description, date_created, created_by) VALUES (?, ?, ?, ?, ?)',
-    [site_id, title, description, date_created, created_by]
+    [
+      parseInt(site_id),
+      title.trim(),
+      description && description.trim() ? description.trim() : null,
+      date_created,
+      created_by
+    ]
   );
 
   const [newEstimate] = await pool.execute(`
@@ -167,11 +173,11 @@ const updateEstimate = asyncHandler(async (req, res) => {
 
   if (title !== undefined) {
     updates.push('title = ?');
-    params.push(title);
+    params.push(title.trim());
   }
   if (description !== undefined) {
     updates.push('description = ?');
-    params.push(description);
+    params.push(description && description.trim() ? description.trim() : null);
   }
   if (status !== undefined) {
     updates.push('status = ?');

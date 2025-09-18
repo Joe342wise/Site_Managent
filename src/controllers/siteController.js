@@ -99,7 +99,16 @@ const createSite = asyncHandler(async (req, res) => {
 
   const [result] = await pool.execute(
     'INSERT INTO sites (name, location, start_date, end_date, status, budget_limit, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [name, location, start_date, end_date, status, budget_limit, notes, created_by]
+    [
+      name.trim(),
+      location && location.trim() ? location.trim() : null,
+      start_date || null,
+      end_date || null,
+      status,
+      budget_limit || null,
+      notes && notes.trim() ? notes.trim() : null,
+      created_by
+    ]
   );
 
   const [newSite] = await pool.execute(`
@@ -128,19 +137,19 @@ const updateSite = asyncHandler(async (req, res) => {
 
   if (name !== undefined) {
     updates.push('name = ?');
-    params.push(name);
+    params.push(name.trim());
   }
   if (location !== undefined) {
     updates.push('location = ?');
-    params.push(location);
+    params.push(location && location.trim() ? location.trim() : null);
   }
   if (start_date !== undefined) {
     updates.push('start_date = ?');
-    params.push(start_date);
+    params.push(start_date || null);
   }
   if (end_date !== undefined) {
     updates.push('end_date = ?');
-    params.push(end_date);
+    params.push(end_date || null);
   }
   if (status !== undefined) {
     updates.push('status = ?');
@@ -148,11 +157,11 @@ const updateSite = asyncHandler(async (req, res) => {
   }
   if (budget_limit !== undefined) {
     updates.push('budget_limit = ?');
-    params.push(budget_limit);
+    params.push(budget_limit || null);
   }
   if (notes !== undefined) {
     updates.push('notes = ?');
-    params.push(notes);
+    params.push(notes && notes.trim() ? notes.trim() : null);
   }
 
   if (updates.length === 0) {

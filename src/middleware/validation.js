@@ -28,49 +28,49 @@ const schemas = {
   createUser: Joi.object({
     username: Joi.string().required().min(3).max(50),
     password: Joi.string().required().min(6),
-    email: Joi.string().email().optional(),
-    full_name: Joi.string().max(100).optional(),
+    email: Joi.string().email().allow('').optional(),
+    full_name: Joi.string().allow('').max(100).optional(),
     role: Joi.string().valid('admin', 'manager', 'supervisor', 'accountant').default('admin')
   }),
 
   updateUser: Joi.object({
     username: Joi.string().min(3).max(50).optional(),
-    email: Joi.string().email().optional(),
-    full_name: Joi.string().max(100).optional(),
+    email: Joi.string().email().allow('').optional(),
+    full_name: Joi.string().allow('').max(100).optional(),
     role: Joi.string().valid('admin', 'manager', 'supervisor', 'accountant').optional(),
     is_active: Joi.boolean().optional()
   }),
 
   createSite: Joi.object({
     name: Joi.string().required().max(200),
-    location: Joi.string().optional(),
+    location: Joi.string().allow('').optional(),
     start_date: Joi.date().optional(),
     end_date: Joi.date().optional(),
     status: Joi.string().valid('planning', 'active', 'on_hold', 'completed', 'cancelled').default('planning'),
     budget_limit: Joi.number().positive().optional(),
-    notes: Joi.string().optional()
+    notes: Joi.string().allow('').optional()
   }),
 
   updateSite: Joi.object({
     name: Joi.string().max(200).optional(),
-    location: Joi.string().optional(),
+    location: Joi.string().allow('').optional(),
     start_date: Joi.date().optional(),
     end_date: Joi.date().optional(),
     status: Joi.string().valid('planning', 'active', 'on_hold', 'completed', 'cancelled').optional(),
     budget_limit: Joi.number().positive().optional(),
-    notes: Joi.string().optional()
+    notes: Joi.string().allow('').optional()
   }),
 
   createEstimate: Joi.object({
     site_id: Joi.number().integer().positive().required(),
     title: Joi.string().required().max(200),
-    description: Joi.string().optional(),
+    description: Joi.string().allow('').optional(),
     date_created: Joi.date().default(new Date())
   }),
 
   updateEstimate: Joi.object({
     title: Joi.string().max(200).optional(),
-    description: Joi.string().optional(),
+    description: Joi.string().allow('').optional(),
     status: Joi.string().valid('draft', 'submitted', 'approved', 'rejected', 'archived').optional()
   }),
 

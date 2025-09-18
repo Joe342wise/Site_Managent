@@ -75,10 +75,10 @@ const ActualsPage: React.FC = () => {
       onSuccess: () => {
         queryClient.invalidateQueries(['actuals']);
         setShowModal(false);
-        toast.success('Actual cost recorded successfully');
+        toast.success('Purchase recorded successfully');
       },
       onError: (error: any) => {
-        toast.error(error.response?.data?.message || 'Failed to record actual cost');
+        toast.error(error.response?.data?.message || 'Failed to record purchase');
       }
     }
   );
@@ -92,10 +92,10 @@ const ActualsPage: React.FC = () => {
         queryClient.invalidateQueries(['actuals']);
         setShowModal(false);
         setEditingActual(null);
-        toast.success('Actual cost updated successfully');
+        toast.success('Purchase record updated successfully');
       },
       onError: (error: any) => {
-        toast.error(error.response?.data?.message || 'Failed to update actual cost');
+        toast.error(error.response?.data?.message || 'Failed to update purchase record');
       }
     }
   );
@@ -106,10 +106,10 @@ const ActualsPage: React.FC = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['actuals']);
-        toast.success('Actual cost deleted successfully');
+        toast.success('Purchase record deleted successfully');
       },
       onError: (error: any) => {
-        toast.error(error.response?.data?.message || 'Failed to delete actual cost');
+        toast.error(error.response?.data?.message || 'Failed to delete purchase record');
       }
     }
   );
@@ -130,7 +130,7 @@ const ActualsPage: React.FC = () => {
   };
 
   const handleDeleteActual = (actual: Actual) => {
-    if (confirm(`Are you sure you want to delete this actual cost record?`)) {
+    if (confirm(`Are you sure you want to delete this purchase record?`)) {
       deleteActualMutation.mutate(actual.actual_id);
     }
   };
@@ -169,9 +169,9 @@ const ActualsPage: React.FC = () => {
       {/* Header */}
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
-          <h1 className="text-2xl font-bold text-gray-900">Actual Costs</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Purchase Tracking</h1>
           <p className="mt-2 text-sm text-gray-700">
-            Track and record actual expenses against estimates with variance analysis
+            Record actual purchases against approved estimates and track budget variance
           </p>
         </div>
         <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
@@ -181,7 +181,7 @@ const ActualsPage: React.FC = () => {
             className="block rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
           >
             <Plus className="h-4 w-4 inline mr-2" />
-            Record Actual
+            Record Purchase
           </button>
         </div>
       </div>
@@ -201,7 +201,7 @@ const ActualsPage: React.FC = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Search actuals..."
+                placeholder="Search purchases..."
               />
             </div>
           </div>
@@ -328,7 +328,7 @@ const ActualsPage: React.FC = () => {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Total Actual Cost
+                      Total Purchased
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
                       {formatCurrency(actualsData.summary?.total_actual || 0)}
@@ -348,7 +348,7 @@ const ActualsPage: React.FC = () => {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Total Estimated
+                      Approved Budget
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
                       {formatCurrency(actualsData.summary?.total_estimated || 0)}
@@ -386,11 +386,11 @@ const ActualsPage: React.FC = () => {
         {filteredActuals.length === 0 ? (
           <div className="text-center py-12">
             <Calculator className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No actual costs found</h3>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No purchases recorded</h3>
             <p className="mt-1 text-sm text-gray-500">
               {searchTerm || selectedSite || selectedEstimate || dateFrom || dateTo
                 ? 'Try adjusting your filters or search term.'
-                : 'Start by recording your first actual cost.'}
+                : 'Start by recording your first purchase against an approved estimate.'}
             </p>
             <div className="mt-6">
               <button
@@ -399,7 +399,7 @@ const ActualsPage: React.FC = () => {
                 className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Record Actual Cost
+                Record Purchase
               </button>
             </div>
           </div>
@@ -430,11 +430,11 @@ const ActualsPage: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-6 mt-2">
                           <div className="text-sm">
-                            <span className="text-gray-500">Estimated:</span>
+                            <span className="text-gray-500">Approved Budget:</span>
                             <span className="ml-1 font-medium">{formatCurrency(actual.total_estimated)}</span>
                           </div>
                           <div className="text-sm">
-                            <span className="text-gray-500">Actual:</span>
+                            <span className="text-gray-500">Amount Purchased:</span>
                             <span className="ml-1 font-medium">{formatCurrency(actual.total_actual)}</span>
                           </div>
                           <div className="text-sm">

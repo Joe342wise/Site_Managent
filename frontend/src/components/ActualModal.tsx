@@ -168,9 +168,9 @@ const ActualModal: React.FC<ActualModalProps> = ({
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
           <form onSubmit={handleSubmit}>
             <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-2">
                 <h3 className="text-lg font-medium text-gray-900">
-                  {actual ? 'Edit Actual Cost' : 'Record Actual Cost'}
+                  {actual ? 'Edit Purchase Record' : 'Record Purchase'}
                 </h3>
                 <button
                   type="button"
@@ -181,6 +181,9 @@ const ActualModal: React.FC<ActualModalProps> = ({
                   <X className="h-5 w-5" />
                 </button>
               </div>
+              <p className="text-sm text-gray-600 mb-4">
+                {actual ? 'Update the details of this purchase against the approved budget.' : 'Record actual amounts spent when purchasing items from your approved estimate.'}
+              </p>
 
               <div className="space-y-4">
                 {/* Site Selection (only for new records) */}
@@ -240,7 +243,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
                 <div>
                   <label htmlFor="item_id" className="block text-sm font-medium text-gray-700 mb-1">
                     <Package className="h-4 w-4 inline mr-1" />
-                    Estimate Item *
+                    Approved Budget Item *
                   </label>
                   {actual ? (
                     <div className="text-sm text-gray-600 p-3 bg-gray-50 rounded-md">
@@ -256,10 +259,10 @@ const ActualModal: React.FC<ActualModalProps> = ({
                       }`}
                       disabled={isLoading || !selectedEstimate}
                     >
-                      <option value={0}>Select an estimate item...</option>
+                      <option value={0}>Select an approved budget item...</option>
                       {estimateItemsData?.items?.map((item: EstimateItem) => (
                         <option key={item.item_id} value={item.item_id}>
-                          {item.description} - {formatCurrency(item.unit_price)}/{item.unit}
+                          {item.description} - Approved: {formatCurrency(item.unit_price)}/{item.unit}
                         </option>
                       ))}
                     </select>
@@ -267,14 +270,14 @@ const ActualModal: React.FC<ActualModalProps> = ({
                   {errors.item_id && <p className="mt-1 text-sm text-red-600">{errors.item_id}</p>}
                 </div>
 
-                {/* Show estimated details */}
+                {/* Show approved budget details */}
                 {selectedItemData && (
                   <div className="bg-blue-50 rounded-md p-3">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Estimated Details:</h4>
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Approved Budget Details:</h4>
                     <div className="text-sm text-blue-800 space-y-1">
                       <div>Quantity: {selectedItemData.quantity} {selectedItemData.unit}</div>
-                      <div>Unit Price: {formatCurrency(selectedItemData.unit_price)}</div>
-                      <div>Total Estimated: {formatCurrency(selectedItemData.total_estimated)}</div>
+                      <div>Approved Unit Price: {formatCurrency(selectedItemData.unit_price)}</div>
+                      <div>Total Approved Budget: {formatCurrency(selectedItemData.total_estimated)}</div>
                     </div>
                   </div>
                 )}
@@ -283,7 +286,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
                 <div>
                   <label htmlFor="actual_unit_price" className="block text-sm font-medium text-gray-700 mb-1">
                     <DollarSign className="h-4 w-4 inline mr-1" />
-                    Actual Unit Price *
+                    Purchase Unit Price *
                   </label>
                   <input
                     type="number"
@@ -304,7 +307,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
                 <div>
                   <label htmlFor="actual_quantity" className="block text-sm font-medium text-gray-700 mb-1">
                     <Calculator className="h-4 w-4 inline mr-1" />
-                    Actual Quantity (optional)
+                    Purchase Quantity (optional)
                   </label>
                   <input
                     type="number"
@@ -320,7 +323,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
                     disabled={isLoading}
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Leave empty to use estimated quantity ({selectedItemData?.quantity || 1} {selectedItemData?.unit || 'unit'})
+                    Leave empty to use approved quantity ({selectedItemData?.quantity || 1} {selectedItemData?.unit || 'unit'})
                   </p>
                   {errors.actual_quantity && <p className="mt-1 text-sm text-red-600">{errors.actual_quantity}</p>}
                 </div>
@@ -328,7 +331,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
                 {/* Total (calculated) */}
                 <div className="bg-gray-50 rounded-md p-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700">Total Actual Cost:</span>
+                    <span className="text-sm font-medium text-gray-700">Total Purchase Amount:</span>
                     <span className="text-lg font-bold text-gray-900">
                       {formatCurrency(calculateTotal())}
                     </span>
@@ -339,7 +342,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
                 <div>
                   <label htmlFor="date_recorded" className="block text-sm font-medium text-gray-700 mb-1">
                     <Calendar className="h-4 w-4 inline mr-1" />
-                    Date Recorded *
+                    Purchase Date *
                   </label>
                   <input
                     type="date"
@@ -366,7 +369,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
                     value={formData.notes}
                     onChange={(e) => handleInputChange('notes', e.target.value)}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Additional notes about this actual cost..."
+                    placeholder="Additional notes about this purchase (vendor, invoice number, etc.)..."
                     disabled={isLoading}
                   />
                 </div>
@@ -379,7 +382,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
                 disabled={isLoading}
                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Saving...' : actual ? 'Update Actual' : 'Record Actual'}
+                {isLoading ? 'Saving...' : actual ? 'Update Purchase' : 'Record Purchase'}
               </button>
               <button
                 type="button"
