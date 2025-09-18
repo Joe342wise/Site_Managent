@@ -2,7 +2,6 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import toast from 'react-hot-toast';
 import {
   ApiResponse,
-  ApiError,
   PaginationResponse,
   LoginRequest,
   LoginResponse,
