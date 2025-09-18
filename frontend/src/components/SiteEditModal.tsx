@@ -124,6 +124,7 @@ const SiteEditModal: React.FC<SiteEditModalProps> = ({
                   onClick={onClose}
                   className="text-gray-400 hover:text-gray-600"
                   disabled={isLoading}
+                  title="Close modal"
                 >
                   <X className="h-5 w-5" />
                 </button>

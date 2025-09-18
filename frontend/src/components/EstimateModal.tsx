@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, FileText, Building, User } from 'lucide-react';
 import { useQuery } from 'react-query';
-import { Estimate, CreateEstimateRequest, Site } from '../types';
+import { Estimate, CreateEstimateRequest } from '../types';
 import { apiService } from '../services/api';
 
 interface EstimateModalProps {
@@ -125,6 +125,7 @@ const EstimateModal: React.FC<EstimateModalProps> = ({
                   onClick={onClose}
                   className="text-gray-400 hover:text-gray-600"
                   disabled={isLoading}
+                  title="Close modal"
                 >
                   <X className="h-5 w-5" />
                 </button>

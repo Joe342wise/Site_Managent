@@ -45,7 +45,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
   // Fetch estimates for selected site
   const { data: estimatesData } = useQuery(
     ['estimates-modal', selectedSite],
-    () => selectedSite ? apiService.getEstimates({ site_id: selectedSite, limit: 100 }) : Promise.resolve({ data: [] }),
+    () => selectedSite ? apiService.getEstimates({ site_id: selectedSite, limit: 100 }) : Promise.resolve({ estimates: [], pagination: { currentPage: 1, totalPages: 0, totalRecords: 0, hasNext: false, hasPrev: false } } as any),
     {
       enabled: isOpen && !actual && !!selectedSite,
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -55,7 +55,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
   // Fetch estimate items for selected estimate
   const { data: estimateItemsData } = useQuery(
     ['estimate-items-modal', selectedEstimate],
-    () => selectedEstimate ? apiService.getEstimateItems(selectedEstimate) : Promise.resolve({ items: [] }),
+    () => selectedEstimate ? apiService.getEstimateItems(selectedEstimate) : Promise.resolve({ items: [], summary: {} }),
     {
       enabled: isOpen && !actual && !!selectedEstimate,
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -130,7 +130,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
     // Clean up the form data before submission
     const cleanedFormData = {
       ...formData,
-      actual_quantity: formData.actual_quantity || null,
+      actual_quantity: formData.actual_quantity || undefined,
       notes: formData.notes?.trim() || ''
     };
 
@@ -177,6 +177,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
                   onClick={onClose}
                   className="text-gray-400 hover:text-gray-600"
                   disabled={isLoading}
+                  title="Close modal"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -230,7 +231,7 @@ const ActualModal: React.FC<ActualModalProps> = ({
                       disabled={isLoading}
                     >
                       <option value="">Select an estimate...</option>
-                      {estimatesData?.data?.map((estimate: any) => (
+                      {estimatesData?.estimates?.map((estimate: any) => (
                         <option key={estimate.estimate_id} value={estimate.estimate_id}>
                           {estimate.title}
                         </option>

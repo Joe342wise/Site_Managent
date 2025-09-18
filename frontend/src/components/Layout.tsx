@@ -50,6 +50,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 type="button"
                 className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                 onClick={() => setSidebarOpen(false)}
+                title="Close sidebar"
               >
                 <X className="h-6 w-6 text-white" />
               </button>
@@ -150,6 +151,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             type="button"
             className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
             onClick={() => setSidebarOpen(true)}
+            title="Open sidebar"
           >
             <Menu className="h-6 w-6" />
           </button>

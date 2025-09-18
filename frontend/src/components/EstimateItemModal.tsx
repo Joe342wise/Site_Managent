@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Package, Tag, Calculator, FileText } from 'lucide-react';
 import { useQuery } from 'react-query';
-import { EstimateItem, CreateEstimateItemRequest, Category } from '../types';
+import { EstimateItem, CreateEstimateItemRequest } from '../types';
 import { apiService } from '../services/api';
 import { formatCurrency } from '../utils';
 
@@ -85,7 +85,7 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
       newErrors.unit = 'Unit is required';
     }
 
-    if (formData.quantity <= 0) {
+    if (!formData.quantity || formData.quantity <= 0) {
       newErrors.quantity = 'Quantity must be greater than 0';
     }
 
@@ -122,7 +122,7 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
   };
 
   const calculateTotal = () => {
-    return formData.quantity * formData.unit_price;
+    return (formData.quantity || 0) * formData.unit_price;
   };
 
   if (!isOpen) return null;
@@ -146,6 +146,7 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
                   onClick={onClose}
                   className="text-gray-400 hover:text-gray-600"
                   disabled={isLoading}
+                  title="Close modal"
                 >
                   <X className="h-5 w-5" />
                 </button>
