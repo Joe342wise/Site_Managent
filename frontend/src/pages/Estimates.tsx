@@ -214,6 +214,7 @@ const EstimatesPage: React.FC = () => {
               setCurrentPage(1);
             }}
             className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            title="Filter estimates by status"
           >
             <option value="">All Statuses</option>
             <option value="draft">Draft</option>
@@ -233,6 +234,7 @@ const EstimatesPage: React.FC = () => {
               setCurrentPage(1);
             }}
             className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            title="Filter estimates by site"
           >
             <option value="">All Sites</option>
             {sites.map((site) => (
@@ -331,7 +333,7 @@ const EstimatesPage: React.FC = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
+                <dl className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Version</dt>
                     <dd className="text-sm text-gray-900">{estimate.version}</dd>
@@ -340,7 +342,7 @@ const EstimatesPage: React.FC = () => {
                     <dt className="text-sm font-medium text-gray-500">Items</dt>
                     <dd className="text-sm text-gray-900">{estimate.item_count || 0}</dd>
                   </div>
-                </div>
+                </dl>
               </div>
 
               <div className="mt-5 flex justify-end space-x-2">

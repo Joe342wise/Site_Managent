@@ -6,12 +6,7 @@ import {
   FileText,
   Building2,
   BarChart3,
-  Calendar,
   Trash2,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Filter,
   Loader
 } from 'lucide-react';
 import { apiService } from '../services/api';
@@ -51,7 +46,7 @@ const ReportGenerationModal: React.FC<ReportGenerationModalProps> = ({
   // Fetch estimates for selected site
   const { data: estimatesData } = useQuery(
     ['estimates-modal', selectedSite],
-    () => selectedSite ? apiService.getEstimates({ site_id: selectedSite, limit: 100 }) : Promise.resolve({ data: [] }),
+    () => selectedSite ? apiService.getEstimates({ site_id: selectedSite, limit: 100 }) : Promise.resolve({ estimates: [], pagination: { currentPage: 1, totalPages: 0, totalRecords: 0, hasNext: false, hasPrev: false } } as any),
     {
       enabled: isOpen && !!selectedSite,
       staleTime: 5 * 60 * 1000,
@@ -122,6 +117,7 @@ const ReportGenerationModal: React.FC<ReportGenerationModalProps> = ({
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       required={reportType === 'variance' || reportType === 'site'}
                       disabled={isLoading}
+                      title="Select site for report generation"
                     >
                       <option value="">Select a site...</option>
                       {sitesData?.data?.map((site: any) => (
@@ -146,9 +142,10 @@ const ReportGenerationModal: React.FC<ReportGenerationModalProps> = ({
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       required
                       disabled={isLoading || !selectedSite}
+                      title="Select estimate for report generation"
                     >
                       <option value="">Select an estimate...</option>
-                      {estimatesData?.data?.map((estimate: any) => (
+                      {estimatesData?.estimates?.map((estimate: any) => (
                         <option key={estimate.estimate_id} value={estimate.estimate_id}>
                           {estimate.title}
                         </option>
@@ -282,7 +279,7 @@ const ReportsPage: React.FC = () => {
         queryClient.invalidateQueries(['reports-list']);
         toast.success('Old reports cleaned up successfully');
       },
-      onError: (error: any) => {
+      onError: () => {
         toast.error('Failed to cleanup reports');
       }
     }
@@ -475,6 +472,7 @@ const ReportsPage: React.FC = () => {
                         <button
                           onClick={() => handleDownload(report.filename)}
                           className="text-blue-600 hover:text-blue-900"
+                          title="Download report"
                         >
                           <Download className="h-4 w-4" />
                         </button>

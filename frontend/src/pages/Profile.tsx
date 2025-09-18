@@ -98,6 +98,7 @@ const ProfilePage: React.FC = () => {
                   value={user?.username}
                   disabled
                   className="block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm text-gray-500 sm:text-sm"
+                  title="Username (read-only)"
                 />
                 <p className="mt-1 text-xs text-gray-500">Username cannot be changed</p>
               </div>
@@ -114,6 +115,7 @@ const ProfilePage: React.FC = () => {
                   value={user?.role}
                   disabled
                   className="block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm text-gray-500 sm:text-sm"
+                  title="User role (read-only)"
                 />
                 <p className="mt-1 text-xs text-gray-500">Role is managed by administrators</p>
               </div>
@@ -135,6 +137,7 @@ const ProfilePage: React.FC = () => {
                       ? 'focus:border-blue-500 focus:ring-blue-500'
                       : 'bg-gray-50 text-gray-500'
                   }`}
+                  title="Email address"
                 />
               </div>
             </div>
@@ -155,6 +158,7 @@ const ProfilePage: React.FC = () => {
                       ? 'focus:border-blue-500 focus:ring-blue-500'
                       : 'bg-gray-50 text-gray-500'
                   }`}
+                  title="Full name"
                 />
               </div>
             </div>
@@ -170,6 +174,7 @@ const ProfilePage: React.FC = () => {
                   value={formatDate(user?.created_at || '')}
                   disabled
                   className="block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm text-gray-500 sm:text-sm"
+                  title="Account creation date (read-only)"
                 />
               </div>
             </div>

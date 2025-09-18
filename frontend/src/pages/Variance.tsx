@@ -8,12 +8,12 @@ import {
   Calculator,
   Building2,
   Filter,
-  Calendar,
   BarChart3
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { formatCurrency, formatPercentage } from '../utils';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { VarianceSummary } from '../types';
 
 interface StatCardProps {
   title: string;
@@ -104,7 +104,7 @@ const VariancePage: React.FC = () => {
   // Fetch estimates for selected site
   const { data: estimatesData } = useQuery(
     ['estimates-filter', selectedSite],
-    () => selectedSite ? apiService.getEstimates({ site_id: selectedSite, limit: 100 }) : Promise.resolve({ data: [] }),
+    () => selectedSite ? apiService.getEstimates({ site_id: selectedSite, limit: 100 }) : Promise.resolve({ estimates: [], pagination: { currentPage: 1, totalPages: 0, totalRecords: 0, hasNext: false, hasPrev: false } } as any),
     {
       enabled: !!selectedSite,
       staleTime: 5 * 60 * 1000,
@@ -119,9 +119,9 @@ const VariancePage: React.FC = () => {
     );
   }
 
-  const summary = varianceData?.summary || {};
+  const summary: Partial<VarianceSummary> = varianceData?.summary || {};
 
-  const stats = [
+  const stats: StatCardProps[] = [
     {
       title: 'Total Estimated Budget',
       value: formatCurrency(summary.total_estimated || 0),
@@ -142,7 +142,7 @@ const VariancePage: React.FC = () => {
       icon: TrendingUp,
       color: (summary.total_variance || 0) > 0 ? 'text-red-600' : 'text-green-600',
       description: `${formatPercentage(summary.overall_variance_percentage || 0)} ${(summary.total_variance || 0) > 0 ? 'over budget' : 'under budget'}`,
-      trend: (summary.total_variance || 0) > 0 ? 'up' : 'down',
+      trend: ((summary.total_variance || 0) > 0 ? 'up' : 'down') as 'up' | 'down',
     },
     {
       title: 'Significant Variances',
@@ -179,6 +179,7 @@ const VariancePage: React.FC = () => {
                 setSelectedEstimate('');
               }}
               className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              title="Filter variance by site"
             >
               <option value="">All Sites</option>
               {sitesData?.data?.map((site: any) => (
@@ -200,9 +201,10 @@ const VariancePage: React.FC = () => {
               onChange={(e) => setSelectedEstimate(e.target.value ? parseInt(e.target.value) : '')}
               className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               disabled={!selectedSite}
+              title="Filter variance by estimate"
             >
               <option value="">All Estimates</option>
-              {estimatesData?.data?.map((estimate: any) => (
+              {estimatesData?.estimates?.map((estimate: any) => (
                 <option key={estimate.estimate_id} value={estimate.estimate_id}>
                   {estimate.title}
                 </option>
@@ -223,6 +225,8 @@ const VariancePage: React.FC = () => {
               value={varianceThreshold}
               onChange={(e) => setVarianceThreshold(parseInt(e.target.value) || 0)}
               className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              title="Set variance threshold percentage"
+              placeholder="e.g., 10"
             />
           </div>
         </div>

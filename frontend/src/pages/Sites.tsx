@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { Plus, Edit, Trash2, MapPin, Calendar, DollarSign, Search, Filter, X } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Calendar, DollarSign, Search, Filter } from 'lucide-react';
 import { apiService } from '../services/api';
 import { Site, CreateSiteRequest } from '../types';
 import { formatCurrency, formatDate, getStatusColor } from '../utils';
@@ -148,6 +148,7 @@ const SitesPage: React.FC = () => {
               setCurrentPage(1);
             }}
             className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            title="Filter sites by status"
           >
             <option value="">All Statuses</option>
             <option value="planning">Planning</option>
@@ -238,7 +239,7 @@ const SitesPage: React.FC = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
+                <dl className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Estimates</dt>
                     <dd className="text-sm text-gray-900">{site.estimate_count || 0}</dd>
@@ -249,7 +250,7 @@ const SitesPage: React.FC = () => {
                       {formatCurrency(site.total_estimated_amount || 0)}
                     </dd>
                   </div>
-                </div>
+                </dl>
               </div>
 
               <div className="mt-5 flex justify-end space-x-2">
@@ -267,6 +268,7 @@ const SitesPage: React.FC = () => {
                     }
                   }}
                   className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-red-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                  title="Delete site"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

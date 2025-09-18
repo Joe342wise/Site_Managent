@@ -93,7 +93,7 @@ const DashboardPage: React.FC = () => {
       title: 'Budget Variance',
       value: formatPercentage(dashboardStats?.overall_variance_percentage || 0),
       icon: TrendingUp,
-      color: dashboardStats?.overall_variance_percentage > 0 ? 'text-red-600' : 'text-green-600',
+      color: (dashboardStats?.overall_variance_percentage || 0) > 0 ? 'text-red-600' : 'text-green-600',
     },
   ];
 
@@ -126,9 +126,9 @@ const DashboardPage: React.FC = () => {
             <div className="mt-4">
               {alertsLoading ? (
                 <LoadingSpinner />
-              ) : alerts?.variance_alerts?.length > 0 ? (
+              ) : (alerts?.variance_alerts?.length || 0) > 0 ? (
                 <div className="space-y-3">
-                  {alerts.variance_alerts.slice(0, 5).map((alert: any, index: number) => (
+                  {alerts?.variance_alerts?.slice(0, 5).map((alert: any, index: number) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-yellow-50 rounded-md">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
@@ -167,9 +167,9 @@ const DashboardPage: React.FC = () => {
             <div className="mt-4">
               {variancesLoading ? (
                 <LoadingSpinner />
-              ) : recentVariances?.length > 0 ? (
+              ) : (recentVariances?.length || 0) > 0 ? (
                 <div className="space-y-3">
-                  {recentVariances.slice(0, 5).map((variance: any, index: number) => (
+                  {(recentVariances?.slice(0, 5) || []).map((variance: any, index: number) => (
                     <div key={index} className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">

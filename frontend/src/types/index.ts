@@ -16,8 +16,7 @@ export interface ApiError {
 
 export interface PaginationResponse<T> {
   success: boolean;
-  data: {
-    [key: string]: T[];
+  data: Record<string, T[]> & {
     pagination: {
       currentPage: number;
       totalPages: number;

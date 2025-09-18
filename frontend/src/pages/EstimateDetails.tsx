@@ -6,17 +6,14 @@ import {
   Plus,
   Edit,
   Trash2,
-  DollarSign,
   Package,
-  Calculator,
   Building,
   User,
   Calendar,
-  FileText,
   Tag
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Estimate, EstimateItem, CreateEstimateItemRequest, Category } from '../types';
+import { EstimateItem, CreateEstimateItemRequest } from '../types';
 import { formatCurrency, formatDate, getStatusColor } from '../utils';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EstimateItemModal from '../components/EstimateItemModal';
@@ -135,10 +132,6 @@ const EstimateDetails: React.FC = () => {
     }
   };
 
-  const groupedCategories = categories?.reduce((acc: Record<number, string>, cat: Category) => {
-    acc[cat.category_id] = cat.name;
-    return acc;
-  }, {}) || {};
 
   return (
     <div className="space-y-6">
@@ -199,7 +192,7 @@ const EstimateDetails: React.FC = () => {
 
         {/* Summary Stats */}
         <div className="px-6 py-4">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
               <dt className="text-sm font-medium text-gray-500">Total Items</dt>
               <dd className="text-lg font-semibold text-gray-900">{summary.total_items || 0}</dd>
@@ -216,7 +209,7 @@ const EstimateDetails: React.FC = () => {
               <dt className="text-sm font-medium text-gray-500">Total Estimated</dt>
               <dd className="text-lg font-semibold text-gray-900">{formatCurrency(summary.total_estimated || 0)}</dd>
             </div>
-          </div>
+          </dl>
         </div>
       </div>
 
@@ -227,6 +220,7 @@ const EstimateDetails: React.FC = () => {
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="block rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            title="Filter items by category"
           >
             <option value="">All Categories</option>
             {categories?.map((category) => (

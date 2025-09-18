@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { Plus, Edit, Trash2, MapPin, Calendar, DollarSign, Search, Filter } from 'lucide-react';
+import { Plus, MapPin, Calendar, DollarSign, Search, Filter } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Site } from '../types';
 import { formatCurrency, formatDate, getStatusColor } from '../utils';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -104,6 +103,7 @@ const SitesPage: React.FC = () => {
               setCurrentPage(1);
             }}
             className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            title="Filter sites by status"
           >
             <option value="">All Statuses</option>
             <option value="planning">Planning</option>

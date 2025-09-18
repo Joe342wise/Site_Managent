@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { Actual, CreateActualRequest, Site, Estimate } from '../types';
-import { formatCurrency, formatDate, getVarianceColor, formatPercentage } from '../utils';
+import { formatCurrency, formatDate, formatPercentage } from '../utils';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ActualModal from '../components/ActualModal';
 import toast from 'react-hot-toast';
@@ -63,7 +63,7 @@ const ActualsPage: React.FC = () => {
   // Fetch estimates for selected site (parallel when site selected)
   const { data: estimatesData } = useQuery(
     ['estimates-filter', selectedSite],
-    () => selectedSite ? apiService.getEstimates({ site_id: selectedSite, limit: 100 }) : Promise.resolve({ data: [] }),
+    () => selectedSite ? apiService.getEstimates({ site_id: selectedSite, limit: 100 }) : Promise.resolve({ estimates: [], pagination: { currentPage: 1, totalPages: 0, totalRecords: 0, hasNext: false, hasPrev: false } } as any),
     {
       enabled: !!selectedSite,
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -231,6 +231,7 @@ const ActualsPage: React.FC = () => {
                 setCurrentPage(1);
               }}
               className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              title="Select site to filter purchases"
             >
               <option value="">All Sites</option>
               {sitesData?.data?.map((site: Site) => (
@@ -254,9 +255,10 @@ const ActualsPage: React.FC = () => {
               }}
               className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               disabled={!selectedSite}
+              title="Select estimate to filter purchases"
             >
               <option value="">All Estimates</option>
-              {estimatesData?.data?.map((estimate: Estimate) => (
+              {estimatesData?.estimates?.map((estimate: Estimate) => (
                 <option key={estimate.estimate_id} value={estimate.estimate_id}>
                   {estimate.title}
                 </option>
@@ -277,6 +279,7 @@ const ActualsPage: React.FC = () => {
                 setCurrentPage(1);
               }}
               className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              title="Select start date to filter purchases"
             />
           </div>
 
@@ -294,6 +297,7 @@ const ActualsPage: React.FC = () => {
                   setCurrentPage(1);
                 }}
                 className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                title="Select end date to filter purchases"
               />
               <button
                 type="button"
