@@ -341,6 +341,11 @@ class ApiService {
     return response.data;
   }
 
+  async cleanupReports(): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.api.delete('/reports/cleanup');
+    return response.data.data!;
+  }
+
   // Health Check
   async getHealth(): Promise<any> {
     const response: AxiosResponse<any> = await this.api.get('/health');
