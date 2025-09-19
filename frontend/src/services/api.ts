@@ -18,6 +18,7 @@ import {
   VarianceAnalysis,
   VarianceSummary,
   DashboardStats,
+  CreateUserRequest,
 } from '../types';
 
 class ApiService {
@@ -93,7 +94,7 @@ class ApiService {
     return response.data.data!;
   }
 
-  async createUser(data: any): Promise<User> {
+  async createUser(data: CreateUserRequest): Promise<User> {
     const response: AxiosResponse<ApiResponse<User>> = await this.api.post('/users', data);
     return response.data.data!;
   }
@@ -132,8 +133,8 @@ class ApiService {
     await this.api.delete(`/sites/${id}`);
   }
 
-  async getSiteStatistics(): Promise<any> {
-    const response: AxiosResponse<ApiResponse<any>> = await this.api.get('/sites/statistics');
+  async getSiteStatistics(): Promise<{ statistics: { total_sites: number; active_sites: number } }> {
+    const response: AxiosResponse<ApiResponse<{ statistics: { total_sites: number; active_sites: number } }>> = await this.api.get('/sites/statistics');
     return response.data.data!;
   }
 
@@ -167,8 +168,8 @@ class ApiService {
     return response.data.data!;
   }
 
-  async getEstimateStatistics(): Promise<any> {
-    const response: AxiosResponse<ApiResponse<any>> = await this.api.get('/estimates/statistics');
+  async getEstimateStatistics(): Promise<{ statistics: { total_estimates: number; draft_estimates: number; total_estimated_value: number } }> {
+    const response: AxiosResponse<ApiResponse<{ statistics: { total_estimates: number; draft_estimates: number; total_estimated_value: number } }>> = await this.api.get('/estimates/statistics');
     return response.data.data!;
   }
 
@@ -252,8 +253,8 @@ class ApiService {
     return response.data.data!;
   }
 
-  async getActualsStatistics(): Promise<any> {
-    const response: AxiosResponse<ApiResponse<any>> = await this.api.get('/actuals/statistics');
+  async getActualsStatistics(): Promise<{ statistics: { total_actual_cost: number; average_variance_percentage: number } }> {
+    const response: AxiosResponse<ApiResponse<{ statistics: { total_actual_cost: number; average_variance_percentage: number } }>> = await this.api.get('/actuals/statistics');
     return response.data.data!;
   }
 
@@ -263,33 +264,33 @@ class ApiService {
     return response.data.data!;
   }
 
-  async getVarianceBySite(): Promise<any[]> {
-    const response: AxiosResponse<ApiResponse<any[]>> = await this.api.get('/variance/by-site');
+  async getVarianceBySite(): Promise<{ site_id: number; site_name: string; total_variance: number; variance_percentage: number }[]> {
+    const response: AxiosResponse<ApiResponse<{ site_id: number; site_name: string; total_variance: number; variance_percentage: number }[]>> = await this.api.get('/variance/by-site');
     return response.data.data!;
   }
 
-  async getVarianceByCategory(params?: { site_id?: number; estimate_id?: number }): Promise<any[]> {
-    const response: AxiosResponse<ApiResponse<any[]>> = await this.api.get('/variance/by-category', { params });
+  async getVarianceByCategory(params?: { site_id?: number; estimate_id?: number }): Promise<{ category_id: number; category_name: string; total_variance: number; variance_percentage: number }[]> {
+    const response: AxiosResponse<ApiResponse<{ category_id: number; category_name: string; total_variance: number; variance_percentage: number }[]>> = await this.api.get('/variance/by-category', { params });
     return response.data.data!;
   }
 
-  async getVarianceTrends(params?: { site_id?: number; days?: number }): Promise<{ daily_trends: any[]; cumulative_trends: any[] }> {
-    const response: AxiosResponse<ApiResponse<{ daily_trends: any[]; cumulative_trends: any[] }>> = await this.api.get('/variance/trends', { params });
+  async getVarianceTrends(params?: { site_id?: number; days?: number }): Promise<{ daily_trends: { date: string; variance: number }[]; cumulative_trends: { date: string; variance: number }[] }> {
+    const response: AxiosResponse<ApiResponse<{ daily_trends: { date: string; variance: number }[]; cumulative_trends: { date: string; variance: number }[] }>> = await this.api.get('/variance/trends', { params });
     return response.data.data!;
   }
 
-  async getTopVariances(params?: { limit?: number; type?: 'both' | 'over' | 'under' }): Promise<any[]> {
-    const response: AxiosResponse<ApiResponse<any[]>> = await this.api.get('/variance/top', { params });
+  async getTopVariances(params?: { limit?: number; type?: 'both' | 'over' | 'under' }): Promise<{ item_id: number; item_description: string; variance_amount: number; variance_percentage: number }[]> {
+    const response: AxiosResponse<ApiResponse<{ item_id: number; item_description: string; variance_amount: number; variance_percentage: number }[]>> = await this.api.get('/variance/top', { params });
     return response.data.data!;
   }
 
-  async getVarianceAlerts(params?: { threshold?: number }): Promise<{ variance_alerts: any[]; budget_alerts: any[] }> {
-    const response: AxiosResponse<ApiResponse<{ variance_alerts: any[]; budget_alerts: any[] }>> = await this.api.get('/variance/alerts', { params });
+  async getVarianceAlerts(params?: { threshold?: number }): Promise<{ variance_alerts: { item_id: number; message: string }[]; budget_alerts: { site_id: number; message: string }[] }> {
+    const response: AxiosResponse<ApiResponse<{ variance_alerts: { item_id: number; message: string }[]; budget_alerts: { site_id: number; message: string }[] }>> = await this.api.get('/variance/alerts', { params });
     return response.data.data!;
   }
 
   // Reports
-  async generateEstimateReport(estimateId: number, params?: { download?: boolean; filename?: string }): Promise<any> {
+  async generateEstimateReport(estimateId: number, params?: { download?: boolean; filename?: string }): Promise<Blob | { success: boolean; message: string; data: { filename: string; path: string; downloadUrl: string } }> {
     const response = await this.api.get(`/reports/estimate/${estimateId}`, {
       params,
       responseType: params?.download ? 'blob' : 'json'
@@ -302,7 +303,7 @@ class ApiService {
     return response.data.data;
   }
 
-  async generateVarianceReport(siteId: number, params?: { download?: boolean; filename?: string }): Promise<any> {
+  async generateVarianceReport(siteId: number, params?: { download?: boolean; filename?: string }): Promise<Blob | { success: boolean; message: string; data: { filename: string; path: string; downloadUrl: string } }> {
     const response = await this.api.get(`/reports/variance/${siteId}`, {
       params,
       responseType: params?.download ? 'blob' : 'json'
@@ -315,7 +316,7 @@ class ApiService {
     return response.data.data;
   }
 
-  async generateSiteReport(siteId: number, params?: { download?: boolean; filename?: string }): Promise<any> {
+  async generateSiteReport(siteId: number, params?: { download?: boolean; filename?: string }): Promise<Blob | { success: boolean; message: string; data: { filename: string; path: string; downloadUrl: string } }> {
     const response = await this.api.get(`/reports/site/${siteId}`, {
       params,
       responseType: params?.download ? 'blob' : 'json'
@@ -328,8 +329,8 @@ class ApiService {
     return response.data.data;
   }
 
-  async getReportsList(): Promise<any[]> {
-    const response: AxiosResponse<ApiResponse<any[]>> = await this.api.get('/reports/list');
+  async getReportsList(): Promise<{ filename: string; size: number; created: string; downloadUrl: string }[]> {
+    const response: AxiosResponse<ApiResponse<{ filename: string; size: number; created: string; downloadUrl: string }[]>> = await this.api.get('/reports/list');
     return response.data.data!;
   }
 
@@ -340,14 +341,19 @@ class ApiService {
     return response.data;
   }
 
-  async cleanupReports(): Promise<any> {
-    const response: AxiosResponse<ApiResponse<any>> = await this.api.delete('/reports/cleanup');
+  async cleanupReports(params?: { days?: number; before_date?: string }): Promise<{ message: string; deletedFiles: number }> {
+    const response: AxiosResponse<ApiResponse<{ message: string; deletedFiles: number }>> = await this.api.delete('/reports/cleanup', { params });
+    return response.data.data!;
+  }
+
+  async deleteReport(filename: string): Promise<{ success: boolean; message: string }> {
+    const response: AxiosResponse<ApiResponse<{ success: boolean; message: string }>> = await this.api.delete(`/reports/${filename}`);
     return response.data.data!;
   }
 
   // Health Check
-  async getHealth(): Promise<any> {
-    const response: AxiosResponse<any> = await this.api.get('/health');
+  async getHealth(): Promise<{ status: string; timestamp: string }> {
+    const response: AxiosResponse<{ status: string; timestamp: string }> = await this.api.get('/health');
     return response.data;
   }
 

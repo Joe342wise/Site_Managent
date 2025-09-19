@@ -1,117 +1,56 @@
 import React, { useState } from 'react';
 import { useQuery } from 'react-query';
+import { useNavigate } from 'react-router-dom';
 import {
-  TrendingUp,
-  TrendingDown,
+  Search,
+  Building,
+  FileText,
+  Calendar,
   DollarSign,
-  AlertTriangle,
-  Calculator,
-  Building2,
-  Filter,
-  BarChart3
+  User,
+  BarChart3,
+  AlertTriangle
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { formatCurrency, formatPercentage } from '../utils';
+import { Estimate } from '../types';
+import { formatCurrency, formatDate, getStatusColor } from '../utils';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { VarianceSummary } from '../types';
-
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: React.ComponentType<{ className?: string }>;
-  color: string;
-  description?: string;
-  trend?: 'up' | 'down' | 'neutral';
-}
-
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, description, trend }) => (
-  <div className="bg-white overflow-hidden shadow rounded-lg">
-    <div className="p-5">
-      <div className="flex items-center">
-        <div className="flex-shrink-0">
-          <Icon className={`h-6 w-6 ${color}`} />
-        </div>
-        <div className="ml-5 w-0 flex-1">
-          <dl>
-            <dt className="text-sm font-medium text-gray-500 truncate">{title}</dt>
-            <dd className="flex items-center text-lg font-medium text-gray-900">
-              {value}
-              {trend && (
-                <span className="ml-2">
-                  {trend === 'up' && <TrendingUp className="h-4 w-4 text-red-500" />}
-                  {trend === 'down' && <TrendingDown className="h-4 w-4 text-green-500" />}
-                </span>
-              )}
-            </dd>
-            {description && (
-              <dd className="text-sm text-gray-500">{description}</dd>
-            )}
-          </dl>
-        </div>
-      </div>
-    </div>
-  </div>
-);
 
 const VariancePage: React.FC = () => {
-  const [selectedSite, setSelectedSite] = useState<number | ''>('');
-  const [selectedEstimate, setSelectedEstimate] = useState<number | ''>('');
-  const [varianceThreshold, setVarianceThreshold] = useState(10);
+  const navigate = useNavigate();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [siteFilter, setSiteFilter] = useState('');
 
-  // Fetch variance analysis
-  const { data: varianceData, isLoading: isLoadingVariance } = useQuery(
-    ['variance-analysis', selectedSite, selectedEstimate, varianceThreshold],
-    () => apiService.getVarianceAnalysis({
-      site_id: selectedSite || undefined,
-      estimate_id: selectedEstimate || undefined,
-      variance_threshold: varianceThreshold
+  // Fetch estimates (these will be our variance analysis cards)
+  const { data: estimatesData, isLoading } = useQuery(
+    ['estimates-for-variance', currentPage, searchTerm, statusFilter, siteFilter],
+    () => apiService.getEstimates({
+      page: currentPage,
+      limit: 12,
+      search: searchTerm || undefined,
+      status: statusFilter || undefined,
+      site_id: siteFilter ? parseInt(siteFilter) : undefined
     }),
     {
-      refetchInterval: 30000,
-    }
-  );
-
-  // Fetch site variances
-  const { data: siteVariances, isLoading: isLoadingSites } = useQuery(
-    ['variance-by-site'],
-    () => apiService.getVarianceBySite(),
-    {
-      refetchInterval: 30000,
-    }
-  );
-
-  // Fetch category variances
-  const { data: categoryVariances, isLoading: isLoadingCategories } = useQuery(
-    ['variance-by-category', selectedSite, selectedEstimate],
-    () => apiService.getVarianceByCategory({
-      site_id: selectedSite || undefined,
-      estimate_id: selectedEstimate || undefined
-    }),
-    {
-      refetchInterval: 30000,
+      refetchInterval: 4 * 60 * 1000, // 4 minutes
+      staleTime: 2 * 60 * 1000, // 2 minutes
+      keepPreviousData: true,
+      refetchOnWindowFocus: false
     }
   );
 
   // Fetch sites for filter
   const { data: sitesData } = useQuery(
-    ['sites-filter'],
+    ['sites-for-filter'],
     () => apiService.getSites({ limit: 100 }),
     {
-      staleTime: 10 * 60 * 1000,
+      staleTime: 5 * 60 * 1000, // 5 minutes
     }
   );
 
-  // Fetch estimates for selected site
-  const { data: estimatesData } = useQuery(
-    ['estimates-filter', selectedSite],
-    () => selectedSite ? apiService.getEstimates({ site_id: selectedSite, limit: 100 }) : Promise.resolve({ estimates: [], pagination: { currentPage: 1, totalPages: 0, totalRecords: 0, hasNext: false, hasPrev: false } } as any),
-    {
-      enabled: !!selectedSite,
-      staleTime: 5 * 60 * 1000,
-    }
-  );
-
-  if (isLoadingVariance || isLoadingSites || isLoadingCategories) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -119,244 +58,192 @@ const VariancePage: React.FC = () => {
     );
   }
 
-  const summary: Partial<VarianceSummary> = varianceData?.summary || {};
+  const estimates = estimatesData?.estimates || [];
+  const sites = sitesData?.sites || [];
 
-  const stats: StatCardProps[] = [
-    {
-      title: 'Total Estimated Budget',
-      value: formatCurrency(summary.total_estimated || 0),
-      icon: Calculator,
-      color: 'text-blue-600',
-      description: `${summary.total_items || 0} budget items`,
-    },
-    {
-      title: 'Total Amount Spent',
-      value: formatCurrency(summary.total_actual || 0),
-      icon: DollarSign,
-      color: 'text-green-600',
-      description: `${summary.items_with_actuals || 0} items purchased`,
-    },
-    {
-      title: 'Budget Variance',
-      value: formatCurrency(Math.abs(summary.total_variance || 0)),
-      icon: TrendingUp,
-      color: (summary.total_variance || 0) > 0 ? 'text-red-600' : 'text-green-600',
-      description: `${formatPercentage(summary.overall_variance_percentage || 0)} ${(summary.total_variance || 0) > 0 ? 'over budget' : 'under budget'}`,
-      trend: ((summary.total_variance || 0) > 0 ? 'up' : 'down') as 'up' | 'down',
-    },
-    {
-      title: 'Significant Variances',
-      value: summary.significant_variances || 0,
-      icon: AlertTriangle,
-      color: 'text-orange-600',
-      description: `>${varianceThreshold}% variance`,
-    },
-  ];
+  // Navigate to variance details for the selected estimate
+  const handleVarianceAnalysis = (estimate: Estimate) => {
+    navigate(`/variance/${estimate.estimate_id}`);
+  };
+
+  const getVariancePreview = (estimate: Estimate) => {
+    // This will be enhanced when we have actual variance data
+    // For now, show basic estimate info
+    const hasActuals = estimate.item_count && estimate.item_count > 0;
+    return {
+      hasData: hasActuals,
+      status: hasActuals ? 'has_actuals' : 'no_actuals',
+      message: hasActuals ? 'Ready for analysis' : 'No purchases recorded'
+    };
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Budget vs Actual Analysis</h1>
-        <p className="mt-2 text-sm text-gray-700">
-          Compare estimated budgets against actual spending to identify variances and trends
-        </p>
+      <div className="sm:flex sm:items-center">
+        <div className="sm:flex-auto">
+          <h1 className="text-2xl font-bold text-gray-900">Variance Analysis</h1>
+          <p className="mt-2 text-sm text-gray-700">
+            Compare estimated vs actual costs for each project estimate
+          </p>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Site Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Building2 className="h-4 w-4 inline mr-1" />
-              Site
-            </label>
-            <select
-              value={selectedSite}
-              onChange={(e) => {
-                setSelectedSite(e.target.value ? parseInt(e.target.value) : '');
-                setSelectedEstimate('');
-              }}
-              className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              title="Filter variance by site"
+      {/* Search and Filter Bar */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <input
+            type="text"
+            placeholder="Search estimates by title or description..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          />
+        </div>
+        <div className="relative">
+          <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            title="Filter estimates by status"
+          >
+            <option value="">All Statuses</option>
+            <option value="approved">Approved</option>
+            <option value="submitted">Submitted</option>
+            <option value="draft">Draft</option>
+          </select>
+        </div>
+        <div className="relative">
+          <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <select
+            value={siteFilter}
+            onChange={(e) => {
+              setSiteFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            title="Filter estimates by site"
+          >
+            <option value="">All Sites</option>
+            {sites.map((site) => (
+              <option key={site.site_id} value={site.site_id}>
+                {site.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Estimates Grid */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {estimates.map((estimate) => {
+          const variancePreview = getVariancePreview(estimate);
+
+          return (
+            <div
+              key={estimate.estimate_id}
+              className="bg-white overflow-hidden shadow rounded-lg cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => handleVarianceAnalysis(estimate)}
             >
-              <option value="">All Sites</option>
-              {sitesData?.data?.map((site: any) => (
-                <option key={site.site_id} value={site.site_id}>
-                  {site.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div className="px-4 py-5 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900 truncate">
+                    {estimate.title}
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(estimate.status)}`}>
+                      {estimate.status}
+                    </div>
+                    <span title="Click to analyze variance">
+                      <BarChart3 className="h-5 w-5 text-blue-600" />
+                    </span>
+                  </div>
+                </div>
 
-          {/* Estimate Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <BarChart3 className="h-4 w-4 inline mr-1" />
-              Estimate
-            </label>
-            <select
-              value={selectedEstimate}
-              onChange={(e) => setSelectedEstimate(e.target.value ? parseInt(e.target.value) : '')}
-              className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              disabled={!selectedSite}
-              title="Filter variance by estimate"
-            >
-              <option value="">All Estimates</option>
-              {estimatesData?.estimates?.map((estimate: any) => (
-                <option key={estimate.estimate_id} value={estimate.estimate_id}>
-                  {estimate.title}
-                </option>
-              ))}
-            </select>
-          </div>
+                <div className="space-y-3">
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Building className="h-4 w-4 mr-2" />
+                    {estimate.site_name || 'Unknown Site'}
+                  </div>
 
-          {/* Variance Threshold */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Filter className="h-4 w-4 inline mr-1" />
-              Variance Threshold (%)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={varianceThreshold}
-              onChange={(e) => setVarianceThreshold(parseInt(e.target.value) || 0)}
-              className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              title="Set variance threshold percentage"
-              placeholder="e.g., 10"
-            />
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Created {formatDate(estimate.date_created)}
+                  </div>
+
+                  <div className="flex items-center text-sm text-gray-500">
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Budget: {formatCurrency(estimate.total_estimated || 0)}
+                  </div>
+
+                  {estimate.created_by_username && (
+                    <div className="flex items-center text-sm text-gray-500">
+                      <User className="h-4 w-4 mr-2" />
+                      By {estimate.created_by_username}
+                    </div>
+                  )}
+
+                  <dl className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Version</dt>
+                      <dd className="text-sm text-gray-900">{estimate.version}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Items</dt>
+                      <dd className="text-sm text-gray-900">{estimate.item_count || 0}</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <div className="mt-5">
+                  <div className={`rounded-lg p-3 text-center ${
+                    variancePreview.hasData ? 'bg-blue-50' : 'bg-yellow-50'
+                  }`}>
+                    <div className="flex items-center justify-center mb-2">
+                      {variancePreview.hasData ? (
+                        <BarChart3 className="h-6 w-6 text-blue-600" />
+                      ) : (
+                        <AlertTriangle className="h-6 w-6 text-yellow-600" />
+                      )}
+                    </div>
+                    <p className={`text-sm font-medium ${
+                      variancePreview.hasData ? 'text-blue-900' : 'text-yellow-900'
+                    }`}>
+                      Click to Analyze Variance
+                    </p>
+                    <p className={`text-xs ${
+                      variancePreview.hasData ? 'text-blue-700' : 'text-yellow-700'
+                    }`}>
+                      {variancePreview.message}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {estimates.length === 0 && (
+          <div className="col-span-full text-center py-12">
+            <div className="mx-auto h-12 w-12 text-gray-400">
+              <FileText className="h-12 w-12" />
+            </div>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No estimates found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {searchTerm || statusFilter || siteFilter
+                ? 'Try adjusting your filters or search term.'
+                : 'Create project estimates first to analyze variance.'}
+            </p>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, index) => (
-          <StatCard key={index} {...stat} />
-        ))}
-      </div>
-
-      {/* Variance by Site */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            Variance by Site
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Site
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Budget
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Spent
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Variance
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Items
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {siteVariances?.map((site: any) => (
-                  <tr key={site.site_id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{site.site_name}</div>
-                      <div className="text-sm text-gray-500">{site.site_status}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(site.total_estimated)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(site.total_actual)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm font-medium ${site.variance_percentage > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {formatCurrency(Math.abs(site.total_variance))}
-                        ({formatPercentage(Math.abs(site.variance_percentage))})
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {site.variance_percentage > 0 ? 'Over budget' : 'Under budget'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {site.items_with_actuals}/{site.total_items}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Variance by Category */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            Variance by Category
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Budget
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Spent
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Variance
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Items
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {categoryVariances?.map((category: any) => (
-                  <tr key={category.category_id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {category.category_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(category.total_estimated)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(category.total_actual)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm font-medium ${category.variance_percentage > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {formatCurrency(Math.abs(category.total_variance))}
-                        ({formatPercentage(Math.abs(category.variance_percentage))})
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {category.variance_percentage > 0 ? 'Over budget' : 'Under budget'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {category.items_with_actuals}/{category.total_items}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      {/* TODO: Add pagination component when needed */}
     </div>
   );
 };

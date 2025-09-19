@@ -201,53 +201,82 @@ class PDFReportService {
 
   _addItemsTable(doc, items) {
     const tableTop = doc.y;
-    const itemHeight = 20;
+    const rowHeight = 22;
+    const leftX = 50;
+    const tableWidth = 500;
+
+    // Column definition: width must sum to tableWidth
+    const columns = [
+      { key: 'description', label: 'Description', width: 170, align: 'left' },
+      { key: 'category_name', label: 'Category', width: 90, align: 'left' },
+      { key: 'quantity', label: 'Qty', width: 45, align: 'right' },
+      { key: 'unit', label: 'Unit', width: 35, align: 'center' },
+      { key: 'unit_price', label: 'Est. Price', width: 70, align: 'right' },
+      { key: 'actual_unit_price', label: 'Act. Price', width: 70, align: 'right' },
+      { key: 'total_estimated', label: 'Total Est.', width: 70, align: 'right' },
+      { key: 'variance_percentage', label: 'Variance', width: 50, align: 'right' }
+    ];
 
     doc.fontSize(14)
        .fillColor('#333333')
-       .text('ESTIMATE ITEMS', 50, tableTop);
+       .text('ESTIMATE ITEMS', leftX, tableTop);
 
     const headerY = tableTop + 30;
+    doc.rect(leftX, headerY, tableWidth, rowHeight).fillAndStroke('#f0f0f0', '#cccccc');
 
-    doc.rect(50, headerY, 500, itemHeight)
-       .fillAndStroke('#f0f0f0', '#cccccc');
+    // Header row
+    doc.fontSize(10).fillColor('#000000');
+    let x = leftX + 5;
+    columns.forEach(col => {
+      doc.text(col.label, x, headerY + 6, { width: col.width - 10, align: col.align });
+      x += col.width;
+    });
 
-    doc.fontSize(10)
-       .fillColor('#000000')
-       .text('Description', 55, headerY + 5)
-       .text('Category', 200, headerY + 5)
-       .text('Qty', 280, headerY + 5)
-       .text('Unit', 310, headerY + 5)
-       .text('Est. Price', 350, headerY + 5)
-       .text('Act. Price', 410, headerY + 5)
-       .text('Total Est.', 470, headerY + 5)
-       .text('Variance', 520, headerY + 5);
-
-    let currentY = headerY + itemHeight;
+    let currentY = headerY + rowHeight;
+    const pageBottom = doc.page.height - 50; // margin bottom
 
     items.forEach((item, index) => {
-      const bgColor = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
+      // Page break
+      if (currentY + rowHeight > pageBottom) {
+        doc.addPage();
+        // redraw header on new page
+        const newHeaderY = 50;
+        doc.rect(leftX, newHeaderY, tableWidth, rowHeight).fillAndStroke('#f0f0f0', '#cccccc');
+        doc.fontSize(10).fillColor('#000000');
+        let hx = leftX + 5;
+        columns.forEach(col => {
+          doc.text(col.label, hx, newHeaderY + 6, { width: col.width - 10, align: col.align });
+          hx += col.width;
+        });
+        currentY = newHeaderY + rowHeight;
+      }
 
-      doc.rect(50, currentY, 500, itemHeight)
-         .fillAndStroke(bgColor, '#dddddd');
+      const bgColor = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
+      doc.rect(leftX, currentY, tableWidth, rowHeight).fillAndStroke(bgColor, '#dddddd');
 
       const varianceColor = item.variance_amount > 0 ? '#ff0000' :
                            item.variance_amount < 0 ? '#008000' : '#000000';
 
-      doc.fontSize(9)
-         .fillColor('#000000')
-         .text(this._truncateText(item.description, 25), 55, currentY + 5)
-         .text(item.category_name, 200, currentY + 5)
-         .text(item.quantity.toString(), 280, currentY + 5)
-         .text(item.unit, 310, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(item.unit_price)}`, 350, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(item.actual_unit_price)}`, 410, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(item.total_estimated)}`, 470, currentY + 5);
+      // Row cells
+      doc.fontSize(9).fillColor('#000000');
+      let cx = leftX + 5;
+      columns.forEach(col => {
+        let value = item[col.key];
+        if (col.key === 'description') value = this._truncateText(String(value || ''), 40);
+        if (col.key === 'quantity') value = (value ?? 0).toString();
+        if (col.key === 'unit_price' || col.key === 'actual_unit_price' || col.key === 'total_estimated') {
+          value = `${this.currency} ${this._formatNumber(value)}`;
+        }
+        if (col.key === 'variance_percentage') {
+          doc.fillColor(varianceColor);
+          value = `${this._formatNumber(value, 1)}%`;
+        }
+        doc.text(String(value ?? ''), cx, currentY + 6, { width: col.width - 10, align: col.align });
+        if (col.key === 'variance_percentage') doc.fillColor('#000000');
+        cx += col.width;
+      });
 
-      doc.fillColor(varianceColor)
-         .text(`${this._formatNumber(item.variance_percentage, 1)}%`, 520, currentY + 5);
-
-      currentY += itemHeight;
+      currentY += rowHeight;
     });
 
     doc.y = currentY + 10;

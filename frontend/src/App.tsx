@@ -11,7 +11,9 @@ import SitesPage from './pages/Sites';
 import EstimatesPage from './pages/Estimates';
 import EstimateDetails from './pages/EstimateDetails';
 import ActualsPage from './pages/Actuals';
+import ActualDetailPage from './pages/ActualDetail';
 import VariancePage from './pages/Variance';
+import VarianceDetailPage from './pages/VarianceDetail';
 import ReportsPage from './pages/Reports';
 import ProfilePage from './pages/Profile';
 
@@ -115,10 +117,26 @@ const AppRoutes: React.FC = () => {
           }
         />
         <Route
+          path="/actuals/:estimateId"
+          element={
+            <ProtectedRoute>
+              <ActualDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/variance"
           element={
             <ProtectedRoute>
               <VariancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/variance/:estimateId"
+          element={
+            <ProtectedRoute>
+              <VarianceDetailPage />
             </ProtectedRoute>
           }
         />

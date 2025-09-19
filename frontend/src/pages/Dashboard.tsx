@@ -38,19 +38,31 @@ const DashboardPage: React.FC = () => {
   const { data: dashboardStats, isLoading: statsLoading } = useQuery(
     'dashboardStats',
     () => apiService.getDashboardStats(),
-    { refetchInterval: 30000 }
+    {
+      refetchInterval: 5 * 60 * 1000, // 5 minutes
+      staleTime: 2 * 60 * 1000, // 2 minutes
+      refetchOnWindowFocus: false
+    }
   );
 
   const { data: recentVariances, isLoading: variancesLoading } = useQuery(
     'recentVariances',
     () => apiService.getTopVariances({ limit: 5 }),
-    { refetchInterval: 30000 }
+    {
+      refetchInterval: 6 * 60 * 1000, // 6 minutes (staggered)
+      staleTime: 3 * 60 * 1000, // 3 minutes
+      refetchOnWindowFocus: false
+    }
   );
 
   const { data: alerts, isLoading: alertsLoading } = useQuery(
     'varianceAlerts',
     () => apiService.getVarianceAlerts({ threshold: 10 }),
-    { refetchInterval: 30000 }
+    {
+      refetchInterval: 7 * 60 * 1000, // 7 minutes (staggered)
+      staleTime: 4 * 60 * 1000, // 4 minutes
+      refetchOnWindowFocus: false
+    }
   );
 
   if (statsLoading) {

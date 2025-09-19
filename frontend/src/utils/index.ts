@@ -140,8 +140,9 @@ export const isValidEmail = (email: string): boolean => {
 };
 
 // Format percentage
-export const formatPercentage = (percentage: number, decimals: number = 1): string => {
-  return `${percentage.toFixed(decimals)}%`;
+export const formatPercentage = (percentage: number | null | undefined, decimals: number = 1): string => {
+  const numValue = parseFloat(percentage?.toString() || '0') || 0;
+  return `${numValue.toFixed(decimals)}%`;
 };
 
 // Get time ago

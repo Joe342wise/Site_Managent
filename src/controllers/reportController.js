@@ -26,9 +26,16 @@ const generateEstimateReport = asyncHandler(async (req, res) => {
 
       setTimeout(async () => {
         try {
+          // Check if file exists before trying to delete it
+          await fs.access(outputPath);
           await fs.unlink(outputPath);
+          console.log(`Temp file deleted: ${outputPath}`);
         } catch (error) {
-          console.error('Error deleting temp file:', error);
+          if (error.code === 'ENOENT') {
+            console.log(`Temp file already deleted or doesn't exist: ${outputPath}`);
+          } else {
+            console.error('Error deleting temp file:', error);
+          }
         }
       }, 5000);
     } else {
@@ -74,9 +81,16 @@ const generateVarianceReport = asyncHandler(async (req, res) => {
 
       setTimeout(async () => {
         try {
+          // Check if file exists before trying to delete it
+          await fs.access(outputPath);
           await fs.unlink(outputPath);
+          console.log(`Temp file deleted: ${outputPath}`);
         } catch (error) {
-          console.error('Error deleting temp file:', error);
+          if (error.code === 'ENOENT') {
+            console.log(`Temp file already deleted or doesn't exist: ${outputPath}`);
+          } else {
+            console.error('Error deleting temp file:', error);
+          }
         }
       }, 5000);
     } else {
@@ -122,9 +136,16 @@ const generateSiteReport = asyncHandler(async (req, res) => {
 
       setTimeout(async () => {
         try {
+          // Check if file exists before trying to delete it
+          await fs.access(outputPath);
           await fs.unlink(outputPath);
+          console.log(`Temp file deleted: ${outputPath}`);
         } catch (error) {
-          console.error('Error deleting temp file:', error);
+          if (error.code === 'ENOENT') {
+            console.log(`Temp file already deleted or doesn't exist: ${outputPath}`);
+          } else {
+            console.error('Error deleting temp file:', error);
+          }
         }
       }, 5000);
     } else {
@@ -164,9 +185,16 @@ const downloadReport = asyncHandler(async (req, res) => {
 
     setTimeout(async () => {
       try {
+        // Check if file exists before trying to delete it
+        await fs.access(filePath);
         await fs.unlink(filePath);
+        console.log(`Temp file deleted: ${filePath}`);
       } catch (error) {
-        console.error('Error deleting temp file:', error);
+        if (error.code === 'ENOENT') {
+          console.log(`Temp file already deleted or doesn't exist: ${filePath}`);
+        } else {
+          console.error('Error deleting temp file:', error);
+        }
       }
     }, 5000);
   } catch (error) {
@@ -217,39 +245,116 @@ const getReportsList = asyncHandler(async (req, res) => {
 
 const cleanupReports = asyncHandler(async (req, res) => {
   try {
+    const { days = 7, before_date } = req.query; // Default to 7 days, allow custom date
     const tempDir = path.join(__dirname, '../../temp');
     const files = await fs.readdir(tempDir);
     const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+    // Calculate cutoff date
+    let cutoffDate;
+    if (before_date) {
+      cutoffDate = new Date(before_date);
+      if (isNaN(cutoffDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid date format. Use YYYY-MM-DD format.'
+        });
+      }
+    } else {
+      cutoffDate = new Date(now.getTime() - parseInt(days) * 24 * 60 * 60 * 1000);
+    }
 
     let deletedCount = 0;
+    const deletedFiles = [];
 
     for (const file of files) {
       if (file.endsWith('.pdf')) {
         const filePath = path.join(tempDir, file);
-        const stats = await fs.stat(filePath);
+        try {
+          const stats = await fs.stat(filePath);
 
-        if (stats.birthtime < oneHourAgo) {
-          await fs.unlink(filePath);
-          deletedCount++;
+          if (stats.birthtime < cutoffDate) {
+            await fs.unlink(filePath);
+            deletedCount++;
+            deletedFiles.push(file);
+            console.log(`Cleaned up old temp file: ${filePath}`);
+          }
+        } catch (error) {
+          if (error.code !== 'ENOENT') {
+            console.error(`Error processing file ${filePath}:`, error);
+          }
         }
       }
     }
 
     res.json({
       success: true,
-      message: `Cleanup completed. ${deletedCount} files deleted.`,
+      message: `Cleanup completed. ${deletedCount} files deleted older than ${before_date || `${days} days`}.`,
       data: {
-        deletedFiles: deletedCount
+        deletedFiles: deletedCount,
+        deletedFileNames: deletedFiles,
+        cutoffDate: cutoffDate.toISOString()
       }
     });
   } catch (error) {
+    console.error('Cleanup error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error during cleanup operation',
+      error: error.message
+    });
+  }
+});
+
+const deleteReport = asyncHandler(async (req, res) => {
+  try {
+    const { filename } = req.params;
+
+    // Validate filename to prevent directory traversal
+    if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid filename'
+      });
+    }
+
+    if (!filename.endsWith('.pdf')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only PDF files can be deleted'
+      });
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    const filePath = path.join(tempDir, filename);
+
+    // Check if file exists
+    try {
+      await fs.access(filePath);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: 'Report file not found'
+      });
+    }
+
+    // Delete the file
+    await fs.unlink(filePath);
+    console.log(`Report deleted by user: ${filePath}`);
+
     res.json({
       success: true,
-      message: 'Cleanup completed with some errors',
+      message: 'Report deleted successfully',
       data: {
-        deletedFiles: 0
+        deletedFile: filename
       }
+    });
+  } catch (error) {
+    console.error('Delete report error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting report',
+      error: error.message
     });
   }
 });
@@ -260,5 +365,6 @@ module.exports = {
   generateSiteReport,
   downloadReport,
   getReportsList,
-  cleanupReports
+  cleanupReports,
+  deleteReport
 };

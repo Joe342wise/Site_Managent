@@ -1,5 +1,5 @@
 // API Response Types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   message: string;
   data?: T;
@@ -47,6 +47,15 @@ export interface LoginRequest {
 export interface LoginResponse {
   user: User;
   token: string;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  password: string;
+  role: User['role'];
+  email?: string;
+  full_name?: string;
+  is_active?: boolean;
 }
 
 // Site Types

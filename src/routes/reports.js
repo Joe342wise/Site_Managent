@@ -6,14 +6,16 @@ const {
   generateSiteReport,
   downloadReport,
   getReportsList,
-  cleanupReports
+  cleanupReports,
+  deleteReport
 } = require('../controllers/reportController');
 const { authenticateToken, authorize } = require('../middleware/auth');
 
 router.use(authenticateToken);
 
 router.get('/list', getReportsList);
-router.post('/cleanup', authorize('admin', 'manager'), cleanupReports);
+router.delete('/cleanup', authorize('admin', 'manager'), cleanupReports);
+router.delete('/:filename', authorize('admin', 'manager'), deleteReport);
 router.get('/download/:filename', downloadReport);
 router.get('/estimate/:estimate_id', generateEstimateReport);
 router.get('/variance/:site_id', generateVarianceReport);

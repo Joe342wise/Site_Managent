@@ -24,12 +24,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // Increased from 100 to 500 requests per 15 minutes
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
-  }
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
 app.use(helmet());
