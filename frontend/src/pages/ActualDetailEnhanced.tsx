@@ -12,10 +12,7 @@ import {
   Calendar,
   TrendingUp,
   TrendingDown,
-  CheckCircle,
-  ChevronDown,
-  ChevronUp,
-  History
+  CheckCircle
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import type { AxiosError } from 'axios';
@@ -36,7 +33,6 @@ interface ItemPurchaseState {
   currentEntry: PurchaseEntry;
   purchaseHistory: Actual[];
   isAddingNew: boolean;
-  showHistory: boolean;
 }
 
 interface BatchVariance {
@@ -60,7 +56,7 @@ interface ItemVarianceAnalysis {
   weightedAverageActualPrice: number;
 }
 
-const ActualDetailPage: React.FC = () => {
+const ActualDetailEnhanced: React.FC = () => {
   const { estimateId } = useParams<{ estimateId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -117,8 +113,7 @@ const ActualDetailPage: React.FC = () => {
             date_recorded: new Date().toISOString().split('T')[0]
           },
           purchaseHistory: actualsByItem[item.item_id] || [],
-          isAddingNew: false,
-          showHistory: false
+          isAddingNew: false
         };
       });
 
@@ -161,21 +156,6 @@ const ActualDetailPage: React.FC = () => {
     });
   };
 
-  const toggleHistoryVisibility = (itemId: number) => {
-    setItemStates(prev => {
-      const currentState = prev[itemId];
-      if (!currentState) return prev;
-
-      return {
-        ...prev,
-        [itemId]: {
-          ...currentState,
-          showHistory: !currentState.showHistory
-        }
-      };
-    });
-  };
-
   const toggleAddingNew = (itemId: number) => {
     setItemStates(prev => {
       const currentState = prev[itemId];
@@ -191,8 +171,7 @@ const ActualDetailPage: React.FC = () => {
             actual_unit_price: 0,
             supplier: '',
             date_recorded: new Date().toISOString().split('T')[0]
-          },
-          showHistory: currentState.showHistory
+          }
         }
       };
     });
@@ -217,7 +196,7 @@ const ActualDetailPage: React.FC = () => {
         actual_unit_price: currentEntry.actual_unit_price,
         actual_quantity: currentEntry.actual_quantity,
         date_recorded: currentEntry.date_recorded,
-        notes: currentEntry.supplier || undefined
+        supplier: currentEntry.supplier || undefined
       });
 
       // Reset current entry and hide the add form
@@ -262,7 +241,7 @@ const ActualDetailPage: React.FC = () => {
           actual_unit_price: itemState.currentEntry.actual_unit_price,
           actual_quantity: itemState.currentEntry.actual_quantity,
           date_recorded: itemState.currentEntry.date_recorded,
-          notes: itemState.currentEntry.supplier || undefined
+          supplier: itemState.currentEntry.supplier || undefined
         });
       }
 
@@ -512,60 +491,9 @@ const ActualDetailPage: React.FC = () => {
                 {/* Purchase History */}
                 {varianceAnalysis.batchVariances.length > 0 && (
                   <div className="mb-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <History className="h-4 w-4 text-gray-500" />
-                        <h4 className="text-md font-medium text-gray-900">
-                          Purchase History ({varianceAnalysis.batchVariances.length} {varianceAnalysis.batchVariances.length === 1 ? 'batch' : 'batches'})
-                        </h4>
-                      </div>
-                      <button
-                        onClick={() => toggleHistoryVisibility(item.item_id)}
-                        className="inline-flex items-center px-3 py-1 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
-                      >
-                        {itemState?.showHistory ? (
-                          <>
-                            <ChevronUp className="h-4 w-4 mr-1" />
-                            Hide History
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="h-4 w-4 mr-1" />
-                            Show History
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Collapsed Summary */}
-                    {!itemState?.showHistory && (
-                      <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-500">Total Batches:</span>
-                            <span className="font-medium ml-2">{varianceAnalysis.batchVariances.length}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Avg. Price:</span>
-                            <span className="font-medium ml-2">{formatCurrency(varianceAnalysis.weightedAverageActualPrice)}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Total Variance:</span>
-                            <span className={`font-medium ml-2 ${
-                              varianceAnalysis.totalVariance > 0 ? 'text-red-600' :
-                              varianceAnalysis.totalVariance < 0 ? 'text-green-600' : 'text-gray-600'
-                            }`}>
-                              {formatCurrency(Math.abs(varianceAnalysis.totalVariance))} ({Math.abs(varianceAnalysis.totalVariancePercentage).toFixed(1)}%)
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Expanded History */}
-                    {itemState?.showHistory && (
-                      <div className="space-y-3">
-                        {itemState.purchaseHistory.map((purchase, index) => {
+                    <h4 className="text-md font-medium text-gray-900 mb-3">Purchase History</h4>
+                    <div className="space-y-3">
+                      {itemState?.purchaseHistory.map((purchase, index) => {
                         const batchVariance = varianceAnalysis.batchVariances[index];
                         return (
                           <div key={purchase.actual_id} className="bg-gray-50 rounded-lg p-4">
@@ -573,8 +501,8 @@ const ActualDetailPage: React.FC = () => {
                               <div>
                                 <p className="text-xs text-gray-500">Batch #{batchVariance.batchIndex}</p>
                                 <p className="text-sm font-medium">{formatDate(purchase.date_recorded)}</p>
-                                {purchase.notes && (
-                                  <p className="text-xs text-gray-500">Supplier: {purchase.notes}</p>
+                                {purchase.supplier && (
+                                  <p className="text-xs text-gray-500">{purchase.supplier}</p>
                                 )}
                               </div>
                               <div>
@@ -608,9 +536,8 @@ const ActualDetailPage: React.FC = () => {
                             </div>
                           </div>
                         );
-                        })}
-                      </div>
-                    )}
+                      })}
+                    </div>
                   </div>
                 )}
 
@@ -727,4 +654,4 @@ const ActualDetailPage: React.FC = () => {
   );
 };
 
-export default ActualDetailPage;
+export default ActualDetailEnhanced;
