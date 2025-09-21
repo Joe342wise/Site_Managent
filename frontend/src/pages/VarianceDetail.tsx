@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import {
@@ -15,179 +15,48 @@ import {
   BarChart3,
   ShoppingCart,
   CheckCircle,
-  XCircle
+  XCircle,
+  ChevronDown,
+  ChevronUp,
+  History
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { VarianceAnalysis } from '../types';
+import { EstimateItem, Actual } from '../types';
 import { formatCurrency, formatDate } from '../utils';
 import LoadingSpinner from '../components/LoadingSpinner';
 
-interface VarianceItemProps {
-  item: VarianceAnalysis;
-  onEnterPurchases: () => void;
+interface BatchVariance {
+  batchIndex: number;
+  estimatedUnitPrice: number;
+  actualUnitPrice: number;
+  quantity: number;
+  varianceAmount: number;
+  variancePercentage: number;
 }
 
-const VarianceItem: React.FC<VarianceItemProps> = ({ item, onEnterPurchases }) => {
-  const estimated = parseFloat(String(item.total_estimated || 0));
-  const actual = parseFloat(String(item.total_actual || 0));
-  const variance = actual - estimated;
-  const variancePercentage = estimated > 0 ? (variance / estimated) * 100 : 0;
-  const hasActual = item.variance_status !== 'no_actual';
+interface ItemVarianceAnalysis {
+  totalEstimated: number;
+  totalActual: number;
+  totalQuantityPurchased: number;
+  estimatedQuantity: number;
+  remainingQuantity: number;
+  totalVariance: number;
+  totalVariancePercentage: number;
+  batchVariances: BatchVariance[];
+  weightedAverageActualPrice: number;
+  hasActuals: boolean;
+}
 
-  const getVarianceColor = () => {
-    if (!hasActual) return 'text-gray-600';
-    if (Math.abs(variancePercentage) < 1) return 'text-gray-600';
-    return variance > 0 ? 'text-red-600' : 'text-green-600';
-  };
-
-  const getVarianceIcon = () => {
-    if (!hasActual) return <Package className="h-4 w-4" />;
-    if (Math.abs(variancePercentage) < 1) return <CheckCircle className="h-4 w-4" />;
-    return variance > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />;
-  };
-
-  const getStatusBadge = () => {
-    if (!hasActual) {
-      return (
-        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800">
-          <XCircle className="h-3 w-3 mr-1" />
-          No Purchase Data
-        </span>
-      );
-    }
-
-    if (Math.abs(variancePercentage) < 1) {
-      return (
-        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800">
-          <CheckCircle className="h-3 w-3 mr-1" />
-          On Budget
-        </span>
-      );
-    }
-
-    if (variance > 0) {
-      return (
-        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-100 text-red-800">
-          <TrendingUp className="h-3 w-3 mr-1" />
-          Over Budget
-        </span>
-      );
-    }
-
-    return (
-      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-800">
-        <TrendingDown className="h-3 w-3 mr-1" />
-        Under Budget
-      </span>
-    );
-  };
-
-  return (
-    <div className="bg-white overflow-hidden shadow rounded-lg">
-      <div className="px-4 py-5 sm:p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <h4 className="text-lg font-medium text-gray-900">
-              {item.item_description}
-            </h4>
-            <p className="text-sm text-gray-500 mt-1">{item.category_name}</p>
-          </div>
-          <div className="flex items-center space-x-2">
-            {getStatusBadge()}
-            {!hasActual && (
-              <button
-                onClick={onEnterPurchases}
-                className="inline-flex items-center rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700"
-              >
-                <ShoppingCart className="h-3 w-3 mr-1" />
-                Enter Purchase
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Estimated */}
-          <div>
-            <div className="text-sm font-medium text-gray-500">Estimated</div>
-            <div className="text-lg font-semibold text-gray-900">
-              {formatCurrency(estimated)}
-            </div>
-            <div className="text-sm text-gray-500">
-              {item.estimated_quantity} {item.unit} @ {formatCurrency(item.estimated_unit_price)}
-            </div>
-          </div>
-
-          {/* Actual */}
-          <div>
-            <div className="text-sm font-medium text-gray-500">Actual</div>
-            <div className="text-lg font-semibold text-gray-900">
-              {hasActual ? formatCurrency(actual) : '—'}
-            </div>
-            {hasActual && (
-              <div className="text-sm text-gray-500">
-                {item.actual_quantity} {item.unit} @ {formatCurrency(item.actual_unit_price)}
-              </div>
-            )}
-            {!hasActual && (
-              <div className="text-sm text-gray-500">No purchase recorded</div>
-            )}
-          </div>
-
-          {/* Variance */}
-          <div>
-            <div className="text-sm font-medium text-gray-500">Variance</div>
-            <div className={`text-lg font-semibold flex items-center ${getVarianceColor()}`}>
-              {getVarianceIcon()}
-              <span className="ml-1">
-                {hasActual ? formatCurrency(Math.abs(variance)) : '—'}
-              </span>
-            </div>
-            {hasActual && (
-              <div className={`text-sm ${getVarianceColor()}`}>
-                {variance >= 0 ? '+' : ''}{variancePercentage.toFixed(1)}%
-              </div>
-            )}
-          </div>
-
-          {/* Date Recorded */}
-          <div>
-            <div className="text-sm font-medium text-gray-500">Date Recorded</div>
-            <div className="text-sm text-gray-900">
-              {item.date_recorded ? formatDate(item.date_recorded) : '—'}
-            </div>
-            {hasActual && (
-              <div className="text-xs text-gray-500">Purchase entered</div>
-            )}
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        {hasActual && estimated > 0 && (
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-sm mb-1">
-              <span className="text-gray-500">Actual vs Estimated</span>
-              <span className={getVarianceColor()}>
-                {((actual / estimated) * 100).toFixed(1)}% of budget
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className={`h-2 rounded-full w-[${Math.min((actual / estimated) * 100, 100)}%] ${
-                  variance > 0 ? 'bg-red-500' : variance < 0 ? 'bg-green-500' : 'bg-gray-500'
-                }`}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+interface ItemState {
+  item_id: number;
+  purchaseHistory: Actual[];
+  showHistory: boolean;
+}
 
 const VarianceDetailPage: React.FC = () => {
   const { estimateId } = useParams<{ estimateId: string }>();
   const navigate = useNavigate();
+  const [itemStates, setItemStates] = useState<Record<number, ItemState>>({});
 
   // Fetch estimate details
   const { data: estimateData, isLoading: estimateLoading } = useQuery(
@@ -201,19 +70,151 @@ const VarianceDetailPage: React.FC = () => {
     }
   );
 
-  // Fetch variance analysis for this estimate
-  const { data: varianceData, isLoading: varianceLoading } = useQuery(
-    ['variance-analysis', estimateId],
-    () => estimateId ? apiService.getVarianceAnalysis({ estimate_id: parseInt(estimateId) }) : null,
+  // Fetch estimate items
+  const { data: itemsData, isLoading: isLoadingItems } = useQuery(
+    ['estimate-items-for-variance', estimateId],
+    () => apiService.getEstimateItems(parseInt(estimateId!)),
     {
       enabled: !!estimateId,
-      refetchInterval: 5 * 60 * 1000, // 5 minutes
-      staleTime: 3 * 60 * 1000, // 3 minutes
-      refetchOnWindowFocus: false
     }
   );
 
-  const isLoading = estimateLoading || varianceLoading;
+  // Fetch existing actuals for this estimate
+  const { data: existingActualsData, isLoading: isLoadingActuals } = useQuery(
+    ['existing-actuals-variance', estimateId],
+    () => apiService.getActuals({ estimate_id: parseInt(estimateId!) }),
+    {
+      enabled: !!estimateId,
+    }
+  );
+
+  // Populate local state with existing actuals grouped by item
+  useEffect(() => {
+    if (existingActualsData?.data && itemsData?.items) {
+      const newItemStates: Record<number, ItemState> = {};
+
+      // Group existing actuals by item_id
+      const actualsByItem = existingActualsData.data.reduce((acc: Record<number, Actual[]>, actual: Actual) => {
+        if (!acc[actual.item_id]) acc[actual.item_id] = [];
+        acc[actual.item_id].push(actual);
+        return acc;
+      }, {});
+
+      // Initialize state for each item
+      itemsData.items.forEach((item: EstimateItem) => {
+        newItemStates[item.item_id] = {
+          item_id: item.item_id,
+          purchaseHistory: actualsByItem[item.item_id] || [],
+          showHistory: false
+        };
+      });
+
+      setItemStates(newItemStates);
+    }
+  }, [existingActualsData, itemsData]);
+
+  const toggleHistoryVisibility = (itemId: number) => {
+    setItemStates(prev => {
+      const currentState = prev[itemId];
+      if (!currentState) return prev;
+
+      return {
+        ...prev,
+        [itemId]: {
+          ...currentState,
+          showHistory: !currentState.showHistory
+        }
+      };
+    });
+  };
+
+  // Calculate variance analysis for an item (same logic as ActualDetail)
+  const getItemVarianceAnalysis = (item: EstimateItem, purchases: Actual[]): ItemVarianceAnalysis => {
+    const estimatedQuantity = parseFloat(item.quantity?.toString() || '0') || 0;
+    const estimatedUnitPrice = parseFloat(item.unit_price?.toString() || '0') || 0;
+    const totalEstimated = estimatedQuantity * estimatedUnitPrice;
+
+    if (purchases.length === 0) {
+      return {
+        totalEstimated,
+        totalActual: 0,
+        totalQuantityPurchased: 0,
+        estimatedQuantity,
+        remainingQuantity: estimatedQuantity,
+        totalVariance: 0,
+        totalVariancePercentage: 0,
+        batchVariances: [],
+        weightedAverageActualPrice: 0,
+        hasActuals: false
+      };
+    }
+
+    const totalQuantityPurchased = purchases.reduce((sum, p) => sum + (parseFloat(p.actual_quantity?.toString() || '0') || 0), 0);
+    const totalActual = purchases.reduce((sum, p) => sum + (parseFloat(p.total_actual?.toString() || '0') || 0), 0);
+    const remainingQuantity = Math.max(0, estimatedQuantity - totalQuantityPurchased);
+    const totalVariance = totalActual - (totalQuantityPurchased * estimatedUnitPrice);
+    const totalVariancePercentage = totalQuantityPurchased > 0 && estimatedUnitPrice > 0 ? (totalVariance / (totalQuantityPurchased * estimatedUnitPrice)) * 100 : 0;
+    const weightedAverageActualPrice = totalQuantityPurchased > 0 ? totalActual / totalQuantityPurchased : 0;
+
+    const batchVariances: BatchVariance[] = purchases.map((purchase, index) => {
+      const quantity = parseFloat(purchase.actual_quantity?.toString() || '0') || 0;
+      const actualUnitPrice = parseFloat(purchase.actual_unit_price?.toString() || '0') || 0;
+      const varianceAmount = (actualUnitPrice - estimatedUnitPrice) * quantity;
+      const variancePercentage = estimatedUnitPrice > 0 ? ((actualUnitPrice - estimatedUnitPrice) / estimatedUnitPrice) * 100 : 0;
+
+      return {
+        batchIndex: index + 1,
+        estimatedUnitPrice,
+        actualUnitPrice,
+        quantity,
+        varianceAmount,
+        variancePercentage
+      };
+    });
+
+    return {
+      totalEstimated,
+      totalActual,
+      totalQuantityPurchased,
+      estimatedQuantity,
+      remainingQuantity,
+      totalVariance,
+      totalVariancePercentage,
+      batchVariances,
+      weightedAverageActualPrice,
+      hasActuals: true
+    };
+  };
+
+  // Calculate project totals
+  const getProjectTotals = () => {
+    if (!itemsData?.items) return { totalEstimated: 0, totalActual: 0, totalVariance: 0, overallPercentage: 0 };
+
+    const totals = itemsData.items.reduce((acc, item: EstimateItem) => {
+      const itemState = itemStates[item.item_id];
+      const analysis = getItemVarianceAnalysis(item, itemState?.purchaseHistory || []);
+
+      return {
+        totalEstimated: acc.totalEstimated + analysis.totalEstimated,
+        totalActual: acc.totalActual + analysis.totalActual
+      };
+    }, { totalEstimated: 0, totalActual: 0 });
+
+    const totalVariance = totals.totalActual - totals.totalEstimated;
+    const overallPercentage = totals.totalEstimated > 0 ? (totalVariance / totals.totalEstimated) * 100 : 0;
+
+    return { ...totals, totalVariance, overallPercentage };
+  };
+
+  const handleEnterPurchases = () => {
+    navigate(`/actuals/${estimateId}`);
+  };
+
+  const handleBackToVariance = () => {
+    navigate('/variance');
+  };
+
+  const isLoading = estimateLoading || isLoadingItems || isLoadingActuals;
 
   if (isLoading) {
     return (
@@ -223,7 +224,7 @@ const VarianceDetailPage: React.FC = () => {
     );
   }
 
-  if (!estimateData || !varianceData) {
+  if (!estimateData || !itemsData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -234,7 +235,7 @@ const VarianceDetailPage: React.FC = () => {
           </p>
           <div className="mt-6">
             <button
-              onClick={() => navigate('/variance')}
+              onClick={handleBackToVariance}
               className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -246,20 +247,9 @@ const VarianceDetailPage: React.FC = () => {
     );
   }
 
-  const estimate = estimateData; // getEstimateById returns the estimate directly
-  const items = varianceData?.variance_analysis || [];
-  const summary = varianceData?.summary || {};
-
-  const handleEnterPurchases = () => {
-    navigate(`/actuals/${estimateId}`);
-  };
-
-  const handleBackToVariance = () => {
-    navigate('/variance');
-  };
-
-  const totalVariance = summary.total_actual - summary.total_estimated;
-  const overallPercentage = summary.total_estimated > 0 ? (totalVariance / summary.total_estimated) * 100 : 0;
+  const estimate = estimateData;
+  const items = itemsData.items || [];
+  const projectTotals = getProjectTotals();
 
   return (
     <div className="space-y-6">
@@ -279,7 +269,7 @@ const VarianceDetailPage: React.FC = () => {
             Variance Analysis: {estimate.title}
           </h1>
           <p className="mt-2 text-sm text-gray-700">
-            Detailed comparison of estimated vs actual costs for each item
+            Detailed comparison of estimated vs actual costs for each item with batch-level tracking
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
@@ -339,7 +329,7 @@ const VarianceDetailPage: React.FC = () => {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Total Estimated</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {formatCurrency(summary.total_estimated || 0)}
+                  {formatCurrency(projectTotals.totalEstimated)}
                 </p>
               </div>
             </div>
@@ -352,7 +342,7 @@ const VarianceDetailPage: React.FC = () => {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Total Actual</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {formatCurrency(summary.total_actual || 0)}
+                  {formatCurrency(projectTotals.totalActual)}
                 </p>
               </div>
             </div>
@@ -361,11 +351,11 @@ const VarianceDetailPage: React.FC = () => {
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
-              <TrendingUp className={`h-6 w-6 ${totalVariance > 0 ? 'text-red-600' : 'text-green-600'}`} />
+              <TrendingUp className={`h-6 w-6 ${projectTotals.totalVariance > 0 ? 'text-red-600' : 'text-green-600'}`} />
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Total Variance</p>
-                <p className={`text-lg font-semibold ${totalVariance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {formatCurrency(Math.abs(totalVariance))} ({Math.abs(overallPercentage).toFixed(1)}%)
+                <p className={`text-lg font-semibold ${projectTotals.totalVariance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {formatCurrency(Math.abs(projectTotals.totalVariance))} ({Math.abs(projectTotals.overallPercentage).toFixed(1)}%)
                 </p>
               </div>
             </div>
@@ -376,9 +366,9 @@ const VarianceDetailPage: React.FC = () => {
             <div className="flex items-center">
               <Package className="h-6 w-6 text-purple-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Progress</p>
+                <p className="text-sm font-medium text-gray-500">Items with Purchases</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {summary.items_with_actuals || 0}/{summary.total_items || 0} items
+                  {Object.values(itemStates).filter(state => state.purchaseHistory.length > 0).length}/{items.length}
                 </p>
               </div>
             </div>
@@ -386,18 +376,209 @@ const VarianceDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Items List */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900">Item-by-Item Analysis</h3>
+      {/* Items List with Variance Analysis */}
+      <div className="space-y-6">
+        <h3 className="text-lg font-medium text-gray-900">Item-by-Item Variance Analysis</h3>
         {items.length > 0 ? (
-          <div className="space-y-4">
-            {items.map((item: VarianceAnalysis, index: number) => (
-              <VarianceItem
-                key={`${item.item_id}-${index}`}
-                item={item}
-                onEnterPurchases={handleEnterPurchases}
-              />
-            ))}
+          <div className="space-y-6">
+            {items.map((item: EstimateItem) => {
+              const itemState = itemStates[item.item_id];
+              const varianceAnalysis = getItemVarianceAnalysis(item, itemState?.purchaseHistory || []);
+
+              return (
+                <div key={item.item_id} className="bg-white shadow rounded-lg">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900">{item.description}</h3>
+                        <p className="text-sm text-gray-500">{item.category_name}</p>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-gray-500">Estimated</p>
+                          <p className="text-lg font-semibold text-gray-900">
+                            {item.quantity} {item.unit} × {formatCurrency(item.unit_price)} = {formatCurrency(varianceAnalysis.totalEstimated)}
+                          </p>
+                        </div>
+                        {!varianceAnalysis.hasActuals && (
+                          <button
+                            onClick={handleEnterPurchases}
+                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                          >
+                            <ShoppingCart className="h-4 w-4 mr-1" />
+                            Enter Purchases
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-6 py-4">
+                    {/* Purchase History */}
+                    {varianceAnalysis.batchVariances.length > 0 && (
+                      <div className="mb-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <History className="h-4 w-4 text-gray-500" />
+                            <h4 className="text-md font-medium text-gray-900">
+                              Purchase History ({varianceAnalysis.batchVariances.length} {varianceAnalysis.batchVariances.length === 1 ? 'batch' : 'batches'})
+                            </h4>
+                          </div>
+                          <button
+                            onClick={() => toggleHistoryVisibility(item.item_id)}
+                            className="inline-flex items-center px-3 py-1 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
+                          >
+                            {itemState?.showHistory ? (
+                              <>
+                                <ChevronUp className="h-4 w-4 mr-1" />
+                                Hide History
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-4 w-4 mr-1" />
+                                Show History
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Collapsed Summary */}
+                        {!itemState?.showHistory && (
+                          <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-purple-500">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-500">Total Batches:</span>
+                                <span className="font-medium ml-2">{varianceAnalysis.batchVariances.length}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Avg. Price:</span>
+                                <span className="font-medium ml-2">{formatCurrency(varianceAnalysis.weightedAverageActualPrice)}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Total Variance:</span>
+                                <span className={`font-medium ml-2 ${
+                                  varianceAnalysis.totalVariance > 0 ? 'text-red-600' :
+                                  varianceAnalysis.totalVariance < 0 ? 'text-green-600' : 'text-gray-600'
+                                }`}>
+                                  {formatCurrency(Math.abs(varianceAnalysis.totalVariance))} ({Math.abs(varianceAnalysis.totalVariancePercentage).toFixed(1)}%)
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Expanded History */}
+                        {itemState?.showHistory && (
+                          <div className="space-y-3">
+                            {itemState.purchaseHistory.map((purchase, index) => {
+                              const batchVariance = varianceAnalysis.batchVariances[index];
+                              return (
+                                <div key={purchase.actual_id} className="bg-gray-50 rounded-lg p-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Batch #{batchVariance.batchIndex}</p>
+                                      <p className="text-sm font-medium">{formatDate(purchase.date_recorded)}</p>
+                                      {purchase.notes && (
+                                        <p className="text-xs text-gray-500">Supplier: {purchase.notes}</p>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Quantity</p>
+                                      <p className="text-sm font-medium">{purchase.actual_quantity} {item.unit}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Unit Price</p>
+                                      <p className="text-sm font-medium">{formatCurrency(purchase.actual_unit_price)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Total</p>
+                                      <p className="text-sm font-medium">{formatCurrency(purchase.total_actual)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Batch Variance</p>
+                                      <div className={`flex items-center text-sm font-medium ${
+                                        batchVariance.varianceAmount > 0 ? 'text-red-600' :
+                                        batchVariance.varianceAmount < 0 ? 'text-green-600' : 'text-gray-600'
+                                      }`}>
+                                        {batchVariance.varianceAmount > 0 ? (
+                                          <TrendingUp className="h-4 w-4 mr-1" />
+                                        ) : batchVariance.varianceAmount < 0 ? (
+                                          <TrendingDown className="h-4 w-4 mr-1" />
+                                        ) : (
+                                          <CheckCircle className="h-4 w-4 mr-1" />
+                                        )}
+                                        {formatCurrency(Math.abs(batchVariance.varianceAmount))} ({Math.abs(batchVariance.variancePercentage).toFixed(1)}%)
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* No Purchases State */}
+                    {!varianceAnalysis.hasActuals && (
+                      <div className="text-center py-8 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <XCircle className="mx-auto h-12 w-12 text-yellow-500" />
+                        <h3 className="mt-2 text-sm font-medium text-yellow-900">No Purchase Data</h3>
+                        <p className="mt-1 text-sm text-yellow-700">
+                          No purchases have been recorded for this item yet.
+                        </p>
+                        <div className="mt-4">
+                          <button
+                            onClick={handleEnterPurchases}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-900 bg-yellow-100 hover:bg-yellow-200"
+                          >
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            Enter Purchases
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Item Summary */}
+                    {varianceAnalysis.hasActuals && (
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500">Total Purchased</p>
+                          <p className="text-sm font-medium">{varianceAnalysis.totalQuantityPurchased} / {varianceAnalysis.estimatedQuantity} {item.unit}</p>
+                          <p className="text-lg font-semibold text-gray-900">{formatCurrency(varianceAnalysis.totalActual)}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500">Remaining Quantity</p>
+                          <p className="text-sm font-medium">{varianceAnalysis.remainingQuantity} {item.unit}</p>
+                          <p className="text-lg font-semibold text-gray-900">{formatCurrency(varianceAnalysis.remainingQuantity * item.unit_price)}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500">Avg. Actual Price</p>
+                          <p className="text-sm font-medium">vs {formatCurrency(item.unit_price)} est.</p>
+                          <p className="text-lg font-semibold text-gray-900">{formatCurrency(varianceAnalysis.weightedAverageActualPrice)}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500">Total Variance</p>
+                          <div className={`flex items-center text-lg font-semibold ${
+                            varianceAnalysis.totalVariance > 0 ? 'text-red-600' :
+                            varianceAnalysis.totalVariance < 0 ? 'text-green-600' : 'text-gray-600'
+                          }`}>
+                            {varianceAnalysis.totalVariance > 0 ? (
+                              <TrendingUp className="h-5 w-5 mr-1" />
+                            ) : varianceAnalysis.totalVariance < 0 ? (
+                              <TrendingDown className="h-5 w-5 mr-1" />
+                            ) : (
+                              <CheckCircle className="h-5 w-5 mr-1" />
+                            )}
+                            {formatCurrency(Math.abs(varianceAnalysis.totalVariance))} ({Math.abs(varianceAnalysis.totalVariancePercentage).toFixed(1)}%)
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-12 bg-white rounded-lg shadow">
