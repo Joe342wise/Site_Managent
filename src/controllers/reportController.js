@@ -10,7 +10,15 @@ const generateEstimateReport = asyncHandler(async (req, res) => {
   const { download = false, filename } = req.query;
 
   try {
-    const outputFilename = filename || `estimate_${estimate_id}_${Date.now()}.pdf`;
+    // Sanitize filename and ensure .pdf extension
+    let outputFilename;
+    if (filename) {
+      // Remove invalid characters and ensure .pdf extension
+      const sanitized = filename.replace(/[<>:"/\\|?*]/g, '_').trim();
+      outputFilename = sanitized.endsWith('.pdf') ? sanitized : `${sanitized}.pdf`;
+    } else {
+      outputFilename = `estimate_${estimate_id}_${Date.now()}.pdf`;
+    }
     const outputPath = path.join(__dirname, '../../temp', outputFilename);
 
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
@@ -65,7 +73,13 @@ const generateVarianceReport = asyncHandler(async (req, res) => {
   const { download = false, filename } = req.query;
 
   try {
-    const outputFilename = filename || `variance_${site_id}_${Date.now()}.pdf`;
+    let outputFilename;
+    if (filename) {
+      const sanitized = filename.replace(/[<>:"/\\|?*]/g, '_').trim();
+      outputFilename = sanitized.endsWith('.pdf') ? sanitized : `${sanitized}.pdf`;
+    } else {
+      outputFilename = `variance_${site_id}_${Date.now()}.pdf`;
+    }
     const outputPath = path.join(__dirname, '../../temp', outputFilename);
 
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
@@ -120,7 +134,13 @@ const generateSiteReport = asyncHandler(async (req, res) => {
   const { download = false, filename } = req.query;
 
   try {
-    const outputFilename = filename || `site_${site_id}_${Date.now()}.pdf`;
+    let outputFilename;
+    if (filename) {
+      const sanitized = filename.replace(/[<>:"/\\|?*]/g, '_').trim();
+      outputFilename = sanitized.endsWith('.pdf') ? sanitized : `${sanitized}.pdf`;
+    } else {
+      outputFilename = `site_${site_id}_${Date.now()}.pdf`;
+    }
     const outputPath = path.join(__dirname, '../../temp', outputFilename);
 
     await fs.mkdir(path.dirname(outputPath), { recursive: true });

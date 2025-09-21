@@ -22,6 +22,7 @@ class PDFReportService {
       SELECT e.*,
              s.name as site_name,
              s.location as site_location,
+             s.budget_limit,
              u.username as created_by_username
       FROM estimates e
       LEFT JOIN sites s ON e.site_id = s.site_id
@@ -37,14 +38,9 @@ class PDFReportService {
 
     const [items] = await pool.execute(`
       SELECT ei.*,
-             c.name as category_name,
-             COALESCE(a.actual_unit_price, 0) as actual_unit_price,
-             COALESCE(a.total_actual, 0) as total_actual,
-             COALESCE(a.variance_amount, 0) as variance_amount,
-             COALESCE(a.variance_percentage, 0) as variance_percentage
+             c.name as category_name
       FROM estimate_items ei
       LEFT JOIN categories c ON ei.category_id = c.category_id
-      LEFT JOIN actuals a ON ei.item_id = a.item_id
       WHERE ei.estimate_id = ?
       ORDER BY c.sort_order, ei.item_id
     `, [estimateId]);
@@ -52,7 +48,7 @@ class PDFReportService {
     this._addHeader(doc);
     this._addEstimateInfo(doc, estimate);
     this._addItemsTable(doc, items);
-    this._addSummary(doc, items);
+    this._addSummary(doc, items, estimate);
     this._addFooter(doc);
 
     doc.end();
@@ -86,21 +82,38 @@ class PDFReportService {
         ei.description as item_description,
         c.name as category_name,
         ei.total_estimated,
-        COALESCE(a.total_actual, 0) as total_actual,
-        COALESCE(a.variance_amount, 0) as variance_amount,
-        COALESCE(a.variance_percentage, 0) as variance_percentage,
+        ei.quantity as estimated_quantity,
+        ei.unit_price as estimated_unit_price,
+        ei.unit,
+        COALESCE(SUM(a.total_actual), 0) as total_actual,
+        COALESCE(SUM(a.actual_quantity), 0) as total_actual_quantity,
+        COUNT(a.actual_id) as purchase_count,
         CASE
-          WHEN a.variance_amount IS NULL THEN 'No Actual'
-          WHEN a.variance_amount > 0 THEN 'Over Budget'
-          WHEN a.variance_amount < 0 THEN 'Under Budget'
-          ELSE 'On Budget'
+          WHEN SUM(a.actual_quantity) > 0
+          THEN SUM(a.total_actual) / SUM(a.actual_quantity)
+          ELSE 0
+        END as weighted_avg_actual_price,
+        CASE
+          WHEN COALESCE(SUM(a.total_actual), 0) = 0 THEN 0
+          ELSE COALESCE(SUM(a.total_actual), 0) - ei.total_estimated
+        END as variance_amount,
+        CASE
+          WHEN COALESCE(SUM(a.total_actual), 0) = 0 OR ei.total_estimated = 0 THEN 0
+          ELSE ((COALESCE(SUM(a.total_actual), 0) - ei.total_estimated) / ei.total_estimated) * 100
+        END as variance_percentage,
+        CASE
+          WHEN COALESCE(SUM(a.total_actual), 0) = 0 THEN 'No Purchases'
+          WHEN ABS(((COALESCE(SUM(a.total_actual), 0) - ei.total_estimated) / NULLIF(ei.total_estimated, 0)) * 100) < 1 THEN 'On Budget'
+          WHEN (COALESCE(SUM(a.total_actual), 0) - ei.total_estimated) > 0 THEN 'Over Budget'
+          ELSE 'Under Budget'
         END as variance_status
       FROM estimates e
       JOIN estimate_items ei ON e.estimate_id = ei.estimate_id
       JOIN categories c ON ei.category_id = c.category_id
       LEFT JOIN actuals a ON ei.item_id = a.item_id
       WHERE e.site_id = ?
-      ORDER BY ABS(a.variance_percentage) DESC, c.sort_order
+      GROUP BY e.estimate_id, ei.item_id, e.title, ei.description, c.name, ei.total_estimated, ei.quantity, ei.unit_price, ei.unit, c.sort_order
+      ORDER BY ABS(variance_percentage) DESC, c.sort_order
     `, [siteId]);
 
     this._addHeader(doc);
@@ -140,10 +153,13 @@ class PDFReportService {
 
     const [estimates] = await pool.execute(`
       SELECT e.*,
-             COUNT(ei.item_id) as item_count,
-             SUM(ei.total_estimated) as calculated_total
+             COUNT(DISTINCT ei.item_id) as item_count,
+             SUM(ei.total_estimated) as calculated_total,
+             COUNT(DISTINCT a.actual_id) as total_purchases,
+             COALESCE(SUM(a.total_actual), 0) as total_actual_spent
       FROM estimates e
       LEFT JOIN estimate_items ei ON e.estimate_id = ei.estimate_id
+      LEFT JOIN actuals a ON ei.item_id = a.item_id
       WHERE e.site_id = ?
       GROUP BY e.estimate_id
       ORDER BY e.date_created DESC
@@ -207,14 +223,12 @@ class PDFReportService {
 
     // Column definition: width must sum to tableWidth
     const columns = [
-      { key: 'description', label: 'Description', width: 170, align: 'left' },
-      { key: 'category_name', label: 'Category', width: 90, align: 'left' },
-      { key: 'quantity', label: 'Qty', width: 45, align: 'right' },
-      { key: 'unit', label: 'Unit', width: 35, align: 'center' },
-      { key: 'unit_price', label: 'Est. Price', width: 70, align: 'right' },
-      { key: 'actual_unit_price', label: 'Act. Price', width: 70, align: 'right' },
-      { key: 'total_estimated', label: 'Total Est.', width: 70, align: 'right' },
-      { key: 'variance_percentage', label: 'Variance', width: 50, align: 'right' }
+      { key: 'description', label: 'Description', width: 180, align: 'left' },
+      { key: 'category_name', label: 'Category', width: 100, align: 'left' },
+      { key: 'quantity', label: 'Quantity', width: 60, align: 'right' },
+      { key: 'unit', label: 'Unit', width: 50, align: 'center' },
+      { key: 'unit_price', label: 'Unit Price', width: 70, align: 'right' },
+      { key: 'total_estimated', label: 'Total Amount', width: 80, align: 'right' }
     ];
 
     doc.fontSize(14)
@@ -254,8 +268,6 @@ class PDFReportService {
       const bgColor = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
       doc.rect(leftX, currentY, tableWidth, rowHeight).fillAndStroke(bgColor, '#dddddd');
 
-      const varianceColor = item.variance_amount > 0 ? '#ff0000' :
-                           item.variance_amount < 0 ? '#008000' : '#000000';
 
       // Row cells
       doc.fontSize(9).fillColor('#000000');
@@ -264,15 +276,10 @@ class PDFReportService {
         let value = item[col.key];
         if (col.key === 'description') value = this._truncateText(String(value || ''), 40);
         if (col.key === 'quantity') value = (value ?? 0).toString();
-        if (col.key === 'unit_price' || col.key === 'actual_unit_price' || col.key === 'total_estimated') {
+        if (col.key === 'unit_price' || col.key === 'total_estimated') {
           value = `${this.currency} ${this._formatNumber(value)}`;
         }
-        if (col.key === 'variance_percentage') {
-          doc.fillColor(varianceColor);
-          value = `${this._formatNumber(value, 1)}%`;
-        }
         doc.text(String(value ?? ''), cx, currentY + 6, { width: col.width - 10, align: col.align });
-        if (col.key === 'variance_percentage') doc.fillColor('#000000');
         cx += col.width;
       });
 
@@ -282,28 +289,71 @@ class PDFReportService {
     doc.y = currentY + 10;
   }
 
-  _addSummary(doc, items) {
+  _addSummary(doc, items, estimate) {
     const totalEstimated = items.reduce((sum, item) => sum + parseFloat(item.total_estimated), 0);
-    const totalActual = items.reduce((sum, item) => sum + parseFloat(item.total_actual), 0);
-    const totalVariance = items.reduce((sum, item) => sum + parseFloat(item.variance_amount), 0);
-    const variancePercentage = totalEstimated > 0 ? (totalVariance / totalEstimated) * 100 : 0;
+    const totalItems = items.length;
+    const budgetLimit = parseFloat(estimate.budget_limit) || 0;
+    const categoryCounts = items.reduce((acc, item) => {
+      acc[item.category_name] = (acc[item.category_name] || 0) + 1;
+      return acc;
+    }, {});
 
     const summaryY = doc.y;
 
     doc.fontSize(14)
        .fillColor('#333333')
-       .text('SUMMARY', 50, summaryY);
+       .text('ESTIMATE SUMMARY', 50, summaryY);
 
     const detailsY = summaryY + 30;
 
     doc.fontSize(12)
        .fillColor('#000000')
-       .text(`Total Estimated: ${this.currency} ${this._formatNumber(totalEstimated)}`, 50, detailsY)
-       .text(`Total Actual: ${this.currency} ${this._formatNumber(totalActual)}`, 50, detailsY + 20)
-       .text(`Total Variance: ${this.currency} ${this._formatNumber(totalVariance)}`, 50, detailsY + 40)
-       .text(`Variance Percentage: ${this._formatNumber(variancePercentage, 2)}%`, 50, detailsY + 60);
+       .text(`Total Items: ${totalItems}`, 50, detailsY)
+       .text(`Total Estimated Budget: ${this.currency} ${this._formatNumber(totalEstimated)}`, 50, detailsY + 20)
+       .text(`Average Cost per Item: ${this.currency} ${this._formatNumber(totalEstimated / totalItems)}`, 50, detailsY + 40);
 
-    doc.y = detailsY + 80;
+    // Budget analysis
+    if (budgetLimit > 0) {
+      const budgetUsage = (totalEstimated / budgetLimit) * 100;
+      const budgetStatus = budgetUsage > 100 ? 'OVER BUDGET' :
+                          budgetUsage === 100 ? 'EXACTLY ON BUDGET' :
+                          budgetUsage >= 90 ? 'NEAR BUDGET LIMIT' : 'WITHIN BUDGET';
+      const statusColor = budgetUsage > 100 ? '#ff0000' :
+                         budgetUsage >= 90 ? '#ff8800' : '#008000';
+
+      doc.fontSize(12)
+         .fillColor('#000000')
+         .text(`Site Budget Limit: ${this.currency} ${this._formatNumber(budgetLimit)}`, 50, detailsY + 70)
+         .text(`Budget Usage: ${budgetUsage.toFixed(1)}%`, 50, detailsY + 90);
+
+      doc.fillColor(statusColor)
+         .text(`Status: ${budgetStatus}`, 50, detailsY + 110);
+
+      if (budgetUsage > 100) {
+        const overage = totalEstimated - budgetLimit;
+        doc.fillColor('#ff0000')
+           .text(`Amount Over Budget: ${this.currency} ${this._formatNumber(overage)}`, 50, detailsY + 130);
+      } else if (budgetUsage < 100) {
+        const remaining = budgetLimit - totalEstimated;
+        doc.fillColor('#008000')
+           .text(`Remaining Budget: ${this.currency} ${this._formatNumber(remaining)}`, 50, detailsY + 130);
+      }
+    }
+
+    // Category breakdown
+    let categoryY = budgetLimit > 0 ? detailsY + 160 : detailsY + 70;
+    doc.fontSize(12)
+       .fillColor('#333333')
+       .text('CATEGORY BREAKDOWN:', 50, categoryY);
+
+    categoryY += 20;
+    doc.fontSize(10).fillColor('#000000');
+    Object.entries(categoryCounts).forEach(([category, count]) => {
+      doc.text(`${category}: ${count} items`, 50, categoryY);
+      categoryY += 15;
+    });
+
+    doc.y = categoryY + 20;
   }
 
   _addVarianceInfo(doc, site) {
@@ -347,11 +397,12 @@ class PDFReportService {
        .fillColor('#000000')
        .text('Item', 55, headerY + 5)
        .text('Category', 150, headerY + 5)
-       .text('Estimated', 220, headerY + 5)
-       .text('Actual', 280, headerY + 5)
-       .text('Variance', 340, headerY + 5)
-       .text('Variance %', 400, headerY + 5)
-       .text('Status', 470, headerY + 5);
+       .text('Batches', 200, headerY + 5)
+       .text('Estimated', 240, headerY + 5)
+       .text('Actual', 300, headerY + 5)
+       .text('Variance', 360, headerY + 5)
+       .text('Variance %', 420, headerY + 5)
+       .text('Status', 480, headerY + 5);
 
     let currentY = headerY + itemHeight;
 
@@ -368,10 +419,11 @@ class PDFReportService {
          .fillColor('#000000')
          .text(this._truncateText(item.item_description, 20), 55, currentY + 5)
          .text(item.category_name, 150, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(item.total_estimated)}`, 220, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(item.total_actual)}`, 280, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(item.variance_amount)}`, 340, currentY + 5)
-         .text(`${this._formatNumber(item.variance_percentage, 1)}%`, 400, currentY + 5);
+         .text(item.purchase_count || '0', 200, currentY + 5)
+         .text(`${this.currency} ${this._formatNumber(item.total_estimated)}`, 240, currentY + 5)
+         .text(`${this.currency} ${this._formatNumber(item.total_actual)}`, 300, currentY + 5)
+         .text(`${this.currency} ${this._formatNumber(item.variance_amount)}`, 360, currentY + 5)
+         .text(`${this._formatNumber(item.variance_percentage, 1)}%`, 420, currentY + 5);
 
       doc.fillColor(statusColor)
          .text(item.variance_status, 470, currentY + 5);
@@ -390,6 +442,8 @@ class PDFReportService {
     const overBudgetCount = varianceData.filter(item => item.variance_status === 'Over Budget').length;
     const underBudgetCount = varianceData.filter(item => item.variance_status === 'Under Budget').length;
     const onBudgetCount = varianceData.filter(item => item.variance_status === 'On Budget').length;
+    const noPurchasesCount = varianceData.filter(item => item.variance_status === 'No Purchases').length;
+    const totalPurchases = varianceData.reduce((sum, item) => sum + parseInt(item.purchase_count || 0), 0);
 
     const summaryY = doc.y;
 
@@ -402,14 +456,16 @@ class PDFReportService {
     doc.fontSize(12)
        .fillColor('#000000')
        .text(`Total Items: ${varianceData.length}`, 50, detailsY)
-       .text(`Over Budget Items: ${overBudgetCount}`, 50, detailsY + 20)
-       .text(`Under Budget Items: ${underBudgetCount}`, 50, detailsY + 40)
-       .text(`On Budget Items: ${onBudgetCount}`, 50, detailsY + 60)
+       .text(`Total Purchase Batches: ${totalPurchases}`, 50, detailsY + 20)
+       .text(`Items with No Purchases: ${noPurchasesCount}`, 50, detailsY + 40)
+       .text(`Over Budget Items: ${overBudgetCount}`, 50, detailsY + 60)
+       .text(`Under Budget Items: ${underBudgetCount}`, 50, detailsY + 80)
+       .text(`On Budget Items: ${onBudgetCount}`, 50, detailsY + 100)
        .text(`Total Estimated: ${this.currency} ${this._formatNumber(totalEstimated)}`, 300, detailsY)
        .text(`Total Actual: ${this.currency} ${this._formatNumber(totalActual)}`, 300, detailsY + 20)
        .text(`Total Variance: ${this.currency} ${this._formatNumber(totalVariance)}`, 300, detailsY + 40);
 
-    doc.y = detailsY + 80;
+    doc.y = detailsY + 120;
   }
 
   _addSiteInfo(doc, site) {
@@ -453,12 +509,13 @@ class PDFReportService {
 
     doc.fontSize(10)
        .fillColor('#000000')
-       .text('ID', 55, headerY + 5)
-       .text('Title', 100, headerY + 5)
-       .text('Date Created', 250, headerY + 5)
-       .text('Status', 350, headerY + 5)
-       .text('Items', 420, headerY + 5)
-       .text('Total Value', 470, headerY + 5);
+       .text('Title', 55, headerY + 5)
+       .text('Date Created', 180, headerY + 5)
+       .text('Status', 280, headerY + 5)
+       .text('Items', 330, headerY + 5)
+       .text('Purchases', 370, headerY + 5)
+       .text('Estimated', 420, headerY + 5)
+       .text('Actual', 480, headerY + 5);
 
     let currentY = headerY + itemHeight;
 
@@ -471,11 +528,13 @@ class PDFReportService {
       doc.fontSize(9)
          .fillColor('#000000')
          .text(estimate.estimate_id.toString(), 55, currentY + 5)
-         .text(this._truncateText(estimate.title, 25), 100, currentY + 5)
-         .text(new Date(estimate.date_created).toLocaleDateString(), 250, currentY + 5)
-         .text(estimate.status.toUpperCase(), 350, currentY + 5)
-         .text(estimate.item_count.toString(), 420, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(estimate.calculated_total || 0)}`, 470, currentY + 5);
+         .text(this._truncateText(estimate.title, 20), 100, currentY + 5)
+         .text(new Date(estimate.date_created).toLocaleDateString(), 200, currentY + 5)
+         .text(estimate.status.toUpperCase(), 280, currentY + 5)
+         .text(estimate.item_count.toString(), 330, currentY + 5)
+         .text(estimate.total_purchases.toString(), 380, currentY + 5)
+         .text(`${this.currency} ${this._formatNumber(estimate.calculated_total || 0)}`, 430, currentY + 5)
+         .text(`${this.currency} ${this._formatNumber(estimate.total_actual_spent || 0)}`, 490, currentY + 5);
 
       currentY += itemHeight;
     });
@@ -484,9 +543,17 @@ class PDFReportService {
   }
 
   _addSiteSummary(doc, site, estimates) {
-    const totalValue = estimates.reduce((sum, est) => sum + parseFloat(est.calculated_total || 0), 0);
+    const totalEstimated = estimates.reduce((sum, est) => sum + parseFloat(est.calculated_total || 0), 0);
+    const totalActual = estimates.reduce((sum, est) => sum + parseFloat(est.total_actual_spent || 0), 0);
+    const totalPurchases = estimates.reduce((sum, est) => sum + parseInt(est.total_purchases || 0), 0);
+    const totalVariance = totalActual - totalEstimated;
+    const variancePercentage = totalEstimated > 0 ? (totalVariance / totalEstimated) * 100 : 0;
+
     const activeEstimates = estimates.filter(est => est.status === 'active').length;
     const completedEstimates = estimates.filter(est => est.status === 'approved').length;
+    const draftEstimates = estimates.filter(est => est.status === 'draft').length;
+
+    const budgetUtilization = site.budget_limit > 0 ? (totalEstimated / site.budget_limit) * 100 : 0;
 
     const summaryY = doc.y;
 
@@ -499,11 +566,22 @@ class PDFReportService {
     doc.fontSize(12)
        .fillColor('#000000')
        .text(`Total Estimates: ${estimates.length}`, 50, detailsY)
-       .text(`Active Estimates: ${activeEstimates}`, 50, detailsY + 20)
-       .text(`Completed Estimates: ${completedEstimates}`, 50, detailsY + 40)
-       .text(`Total Estimated Value: ${this.currency} ${this._formatNumber(totalValue)}`, 50, detailsY + 60);
+       .text(`Draft: ${draftEstimates} | Active: ${activeEstimates} | Approved: ${completedEstimates}`, 50, detailsY + 20)
+       .text(`Total Purchase Batches: ${totalPurchases}`, 50, detailsY + 40)
+       .text(`Total Estimated: ${this.currency} ${this._formatNumber(totalEstimated)}`, 50, detailsY + 60)
+       .text(`Total Actual Spent: ${this.currency} ${this._formatNumber(totalActual)}`, 50, detailsY + 80)
+       .text(`Total Variance: ${this.currency} ${this._formatNumber(Math.abs(totalVariance))} (${totalVariance >= 0 ? '+' : ''}${variancePercentage.toFixed(1)}%)`, 50, detailsY + 100);
 
-    doc.y = detailsY + 80;
+    if (site.budget_limit > 0) {
+      const budgetStatus = budgetUtilization > 100 ? 'OVER BUDGET' :
+                          budgetUtilization >= 90 ? 'NEAR LIMIT' : 'WITHIN BUDGET';
+
+      doc.text(`Budget Limit: ${this.currency} ${this._formatNumber(site.budget_limit)}`, 300, detailsY)
+         .text(`Budget Utilization: ${budgetUtilization.toFixed(1)}%`, 300, detailsY + 20)
+         .text(`Status: ${budgetStatus}`, 300, detailsY + 40);
+    }
+
+    doc.y = detailsY + 140;
   }
 
   _addFooter(doc) {
