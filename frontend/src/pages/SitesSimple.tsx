@@ -39,6 +39,13 @@ const SitesPage: React.FC = () => {
     }
   );
 
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = () => setStatusDropdownOpen(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -48,13 +55,6 @@ const SitesPage: React.FC = () => {
   }
 
   const sites = sitesData?.sites || [];
-
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = () => setStatusDropdownOpen(null);
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
 
   const handleStatusChange = (siteId: number, newStatus: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled') => {
     updateStatusMutation.mutate({ id: siteId, status: newStatus });

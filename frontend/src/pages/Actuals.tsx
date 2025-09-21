@@ -19,17 +19,16 @@ const ActualsPage: React.FC = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [siteFilter, setSiteFilter] = useState('');
 
   // Fetch estimates (these will be our "actuals" cards to work with)
   const { data: estimatesData, isLoading } = useQuery(
-    ['estimates-for-actuals', currentPage, searchTerm, statusFilter, siteFilter],
+    ['estimates-for-actuals', currentPage, searchTerm, siteFilter],
     () => apiService.getEstimates({
       page: currentPage,
       limit: 12,
       search: searchTerm || undefined,
-      status: statusFilter || undefined,
+      status: 'approved',
       site_id: siteFilter ? parseInt(siteFilter) : undefined
     }),
     {
@@ -88,23 +87,6 @@ const ActualsPage: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           />
-        </div>
-        <div className="relative">
-          <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            title="Filter estimates by status"
-          >
-            <option value="">All Statuses</option>
-            <option value="approved">Approved</option>
-            <option value="submitted">Submitted</option>
-            <option value="draft">Draft</option>
-          </select>
         </div>
         <div className="relative">
           <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -203,9 +185,9 @@ const ActualsPage: React.FC = () => {
             </div>
             <h3 className="mt-2 text-sm font-medium text-gray-900">No estimates found</h3>
             <p className="mt-1 text-sm text-gray-500">
-              {searchTerm || statusFilter || siteFilter
+              {searchTerm || siteFilter
                 ? 'Try adjusting your filters or search term.'
-                : 'Create project estimates first to record purchases against them.'}
+                : 'Create approved project estimates first to record purchases against them.'}
             </p>
           </div>
         )}
