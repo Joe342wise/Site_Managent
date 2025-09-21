@@ -217,18 +217,18 @@ class PDFReportService {
 
   _addItemsTable(doc, items) {
     const tableTop = doc.y;
-    const rowHeight = 22;
+    const rowHeight = 25;
     const leftX = 50;
     const tableWidth = 500;
 
     // Column definition: width must sum to tableWidth
     const columns = [
-      { key: 'description', label: 'Description', width: 180, align: 'left' },
-      { key: 'category_name', label: 'Category', width: 100, align: 'left' },
-      { key: 'quantity', label: 'Quantity', width: 60, align: 'right' },
-      { key: 'unit', label: 'Unit', width: 50, align: 'center' },
-      { key: 'unit_price', label: 'Unit Price', width: 70, align: 'right' },
-      { key: 'total_estimated', label: 'Total Amount', width: 80, align: 'right' }
+      { key: 'description', label: 'Description', width: 125, align: 'left' },
+      { key: 'category_name', label: 'Category', width: 85, align: 'left' },
+      { key: 'quantity', label: 'Quantity', width: 55, align: 'right' },
+      { key: 'unit', label: 'Unit', width: 45, align: 'center' },
+      { key: 'unit_price', label: `Unit Price (${this.currency})`, width: 90, align: 'right' },
+      { key: 'total_estimated', label: `Total Amount (${this.currency})`, width: 100, align: 'left' }
     ];
 
     doc.fontSize(14)
@@ -242,7 +242,7 @@ class PDFReportService {
     doc.fontSize(10).fillColor('#000000');
     let x = leftX + 5;
     columns.forEach(col => {
-      doc.text(col.label, x, headerY + 6, { width: col.width - 10, align: col.align });
+      doc.text(col.label, x, headerY + 8, { width: col.width - 10, align: col.align });
       x += col.width;
     });
 
@@ -277,9 +277,9 @@ class PDFReportService {
         if (col.key === 'description') value = this._truncateText(String(value || ''), 40);
         if (col.key === 'quantity') value = (value ?? 0).toString();
         if (col.key === 'unit_price' || col.key === 'total_estimated') {
-          value = `${this.currency} ${this._formatNumber(value)}`;
+          value = this._formatNumber(value);
         }
-        doc.text(String(value ?? ''), cx, currentY + 6, { width: col.width - 10, align: col.align });
+        doc.text(String(value ?? ''), cx, currentY + 8, { width: col.width - 10, align: col.align });
         cx += col.width;
       });
 
@@ -396,13 +396,13 @@ class PDFReportService {
     doc.fontSize(10)
        .fillColor('#000000')
        .text('Item', 55, headerY + 5)
-       .text('Category', 150, headerY + 5)
-       .text('Batches', 200, headerY + 5)
-       .text('Estimated', 240, headerY + 5)
-       .text('Actual', 300, headerY + 5)
-       .text('Variance', 360, headerY + 5)
-       .text('Variance %', 420, headerY + 5)
-       .text('Status', 480, headerY + 5);
+       .text('Category', 140, headerY + 5)
+       .text('Batches', 190, headerY + 5)
+       .text('Estimated', 230, headerY + 5)
+       .text('Actual', 290, headerY + 5)
+       .text('Variance', 350, headerY + 5)
+       .text('Variance %', 410, headerY + 5)
+       .text('Status', 470, headerY + 5);
 
     let currentY = headerY + itemHeight;
 
@@ -417,16 +417,16 @@ class PDFReportService {
 
       doc.fontSize(9)
          .fillColor('#000000')
-         .text(this._truncateText(item.item_description, 20), 55, currentY + 5)
-         .text(item.category_name, 150, currentY + 5)
-         .text(item.purchase_count || '0', 200, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(item.total_estimated)}`, 240, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(item.total_actual)}`, 300, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(item.variance_amount)}`, 360, currentY + 5)
-         .text(`${this._formatNumber(item.variance_percentage, 1)}%`, 420, currentY + 5);
+         .text(this._truncateText(item.item_description, 18), 55, currentY + 5)
+         .text(this._truncateText(item.category_name, 10), 140, currentY + 5)
+         .text(item.purchase_count || '0', 190, currentY + 5)
+         .text(`${this.currency}${this._formatNumber(item.total_estimated)}`, 230, currentY + 5)
+         .text(`${this.currency}${this._formatNumber(item.total_actual)}`, 290, currentY + 5)
+         .text(`${this.currency}${this._formatNumber(item.variance_amount)}`, 350, currentY + 5)
+         .text(`${this._formatNumber(item.variance_percentage, 1)}%`, 410, currentY + 5);
 
       doc.fillColor(statusColor)
-         .text(item.variance_status, 470, currentY + 5);
+         .text(this._truncateText(item.variance_status, 12), 470, currentY + 5);
 
       currentY += itemHeight;
     });
@@ -510,12 +510,12 @@ class PDFReportService {
     doc.fontSize(10)
        .fillColor('#000000')
        .text('Title', 55, headerY + 5)
-       .text('Date Created', 180, headerY + 5)
-       .text('Status', 280, headerY + 5)
-       .text('Items', 330, headerY + 5)
-       .text('Purchases', 370, headerY + 5)
-       .text('Estimated', 420, headerY + 5)
-       .text('Actual', 480, headerY + 5);
+       .text('Date Created', 170, headerY + 5)
+       .text('Status', 260, headerY + 5)
+       .text('Items', 310, headerY + 5)
+       .text('Purchases', 350, headerY + 5)
+       .text('Estimated', 400, headerY + 5)
+       .text('Actual', 470, headerY + 5);
 
     let currentY = headerY + itemHeight;
 
@@ -527,14 +527,13 @@ class PDFReportService {
 
       doc.fontSize(9)
          .fillColor('#000000')
-         .text(estimate.estimate_id.toString(), 55, currentY + 5)
-         .text(this._truncateText(estimate.title, 20), 100, currentY + 5)
-         .text(new Date(estimate.date_created).toLocaleDateString(), 200, currentY + 5)
-         .text(estimate.status.toUpperCase(), 280, currentY + 5)
-         .text(estimate.item_count.toString(), 330, currentY + 5)
-         .text(estimate.total_purchases.toString(), 380, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(estimate.calculated_total || 0)}`, 430, currentY + 5)
-         .text(`${this.currency} ${this._formatNumber(estimate.total_actual_spent || 0)}`, 490, currentY + 5);
+         .text(this._truncateText(estimate.title, 22), 55, currentY + 5)
+         .text(new Date(estimate.date_created).toLocaleDateString(), 170, currentY + 5)
+         .text(estimate.status.toUpperCase(), 260, currentY + 5)
+         .text(estimate.item_count.toString(), 310, currentY + 5)
+         .text(estimate.total_purchases.toString(), 350, currentY + 5)
+         .text(`${this.currency}${this._formatNumber(estimate.calculated_total || 0)}`, 400, currentY + 5)
+         .text(`${this.currency}${this._formatNumber(estimate.total_actual_spent || 0)}`, 470, currentY + 5);
 
       currentY += itemHeight;
     });
