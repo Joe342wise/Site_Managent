@@ -44,17 +44,17 @@ const getVarianceAnalysis = asyncHandler(async (req, res) => {
   let whereConditions = [];
 
   if (site_id) {
-    whereConditions.push('s.site_id = ?');
+    whereConditions.push(`s.site_id = $${params.length + 1}`);
     params.push(site_id);
   }
 
   if (estimate_id) {
-    whereConditions.push('e.estimate_id = ?');
+    whereConditions.push(`e.estimate_id = $${params.length + 1}`);
     params.push(estimate_id);
   }
 
   if (category_id) {
-    whereConditions.push('c.category_id = ?');
+    whereConditions.push(`c.category_id = $${params.length + 1}`);
     params.push(category_id);
   }
 
@@ -64,7 +64,8 @@ const getVarianceAnalysis = asyncHandler(async (req, res) => {
 
   baseQuery += ' ORDER BY ABS(CASE WHEN ei.total_estimated > 0 AND a.actual_unit_price IS NOT NULL THEN (((a.actual_unit_price * COALESCE(a.actual_quantity, ei.quantity)) - ei.total_estimated) / ei.total_estimated) * 100 ELSE 0 END) DESC, s.site_id, e.estimate_id, c.sort_order';
 
-  const [varianceData] = await pool.execute(baseQuery, params);
+  const varianceDataResult = await pool.query(baseQuery, params);
+  const varianceData = varianceDataResult.rows;
 
   const significantVariances = varianceData.filter(item =>
     Math.abs(item.variance_percentage) >= parseFloat(variance_threshold)
@@ -97,7 +98,7 @@ const getVarianceAnalysis = asyncHandler(async (req, res) => {
 });
 
 const getVarianceBySite = asyncHandler(async (req, res) => {
-  const [siteVariances] = await pool.execute(`
+  const siteVariancesResult = await pool.query(`
     SELECT
       s.site_id,
       s.name as site_name,
@@ -123,6 +124,7 @@ const getVarianceBySite = asyncHandler(async (req, res) => {
     HAVING total_items > 0
     ORDER BY ABS(variance_percentage) DESC
   `);
+  const siteVariances = siteVariancesResult.rows;
 
   res.json({
     success: true,
@@ -164,12 +166,12 @@ const getVarianceByCategory = asyncHandler(async (req, res) => {
   let whereConditions = [];
 
   if (site_id) {
-    whereConditions.push('e.site_id = ?');
+    whereConditions.push(`e.site_id = $${params.length + 1}`);
     params.push(site_id);
   }
 
   if (estimate_id) {
-    whereConditions.push('e.estimate_id = ?');
+    whereConditions.push(`e.estimate_id = $${params.length + 1}`);
     params.push(estimate_id);
   }
 
@@ -183,7 +185,8 @@ const getVarianceByCategory = asyncHandler(async (req, res) => {
     ORDER BY ABS(variance_percentage) DESC
   `;
 
-  const [categoryVariances] = await pool.execute(query, params);
+  const categoryVariancesResult = await pool.query(query, params);
+  const categoryVariances = categoryVariancesResult.rows;
 
   res.json({
     success: true,
@@ -214,18 +217,18 @@ const getVarianceTrends = asyncHandler(async (req, res) => {
   `;
 
   const params = [];
-  let whereConditions = ['a.date_recorded >= DATE_SUB(CURDATE(), INTERVAL ? DAY)'];
-  params.push(parseInt(days));
+  let whereConditions = [`a.date_recorded >= CURRENT_DATE - INTERVAL '${parseInt(days)} days'`];
 
   if (site_id) {
-    whereConditions.push('e.site_id = ?');
+    whereConditions.push(`e.site_id = $${params.length + 1}`);
     params.push(site_id);
   }
 
   query += ' WHERE ' + whereConditions.join(' AND ');
   query += ' GROUP BY DATE(a.date_recorded) ORDER BY recorded_date ASC';
 
-  const [trends] = await pool.execute(query, params);
+  const trendsResult = await pool.query(query, params);
+  const trends = trendsResult.rows;
 
   const cumulativeData = [];
   let cumulativeVariance = 0;
@@ -267,7 +270,7 @@ const getTopVariances = asyncHandler(async (req, res) => {
     conditions = 'AND (a.actual_unit_price * COALESCE(a.actual_quantity, ei.quantity)) < ei.total_estimated';
   }
 
-  const [topVariances] = await pool.execute(`
+  const topVariancesResult = await pool.query(`
     SELECT
       a.actual_id,
       ei.description as item_description,
@@ -292,6 +295,7 @@ const getTopVariances = asyncHandler(async (req, res) => {
     ORDER BY ABS((a.actual_unit_price * COALESCE(a.actual_quantity, ei.quantity)) - ei.total_estimated) DESC
     LIMIT ${parseInt(limit)}
   `);
+  const topVariances = topVariancesResult.rows;
 
   res.json({
     success: true,
@@ -302,7 +306,7 @@ const getTopVariances = asyncHandler(async (req, res) => {
 const getVarianceAlerts = asyncHandler(async (req, res) => {
   const { threshold = 20 } = req.query;
 
-  const [alerts] = await pool.execute(`
+  const alertsResult = await pool.query(`
     SELECT
       'high_variance' as alert_type,
       a.actual_id,
@@ -331,12 +335,13 @@ const getVarianceAlerts = asyncHandler(async (req, res) => {
     JOIN categories c ON ei.category_id = c.category_id
     WHERE a.actual_unit_price IS NOT NULL
       AND ei.total_estimated > 0
-      AND ABS((((a.actual_unit_price * COALESCE(a.actual_quantity, ei.quantity)) - ei.total_estimated) / ei.total_estimated) * 100) >= ?
+      AND ABS((((a.actual_unit_price * COALESCE(a.actual_quantity, ei.quantity)) - ei.total_estimated) / ei.total_estimated) * 100) >= $1
     ORDER BY ABS((((a.actual_unit_price * COALESCE(a.actual_quantity, ei.quantity)) - ei.total_estimated) / ei.total_estimated) * 100) DESC
     LIMIT 50
   `, [parseFloat(threshold)]);
+  const alerts = alertsResult.rows;
 
-  const [budgetAlerts] = await pool.execute(`
+  const budgetAlertsResult = await pool.query(`
     SELECT
       'budget_exceeded' as alert_type,
       s.site_id,
@@ -354,6 +359,7 @@ const getVarianceAlerts = asyncHandler(async (req, res) => {
     HAVING total_spent > s.budget_limit
     ORDER BY over_budget_percentage DESC
   `);
+  const budgetAlerts = budgetAlertsResult.rows;
 
   res.json({
     success: true,

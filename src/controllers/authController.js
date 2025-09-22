@@ -7,10 +7,11 @@ const emailService = require('../services/emailService');
 const login = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
 
-  const [users] = await pool.execute(
-    'SELECT user_id, username, password, email, full_name, role, is_active, profile_image FROM users WHERE username = ? AND is_active = TRUE',
+  const usersResult = await pool.query(
+    'SELECT user_id, username, password, email, full_name, role, is_active, profile_image FROM users WHERE username = $1 AND is_active = TRUE',
     [username]
   );
+  const users = usersResult.rows;
 
   if (users.length === 0) {
     return res.status(401).json({
@@ -56,10 +57,11 @@ const updateProfile = asyncHandler(async (req, res) => {
 
   // Check if username is already taken by another user
   if (username) {
-    const [existingUsers] = await pool.execute(
-      'SELECT user_id FROM users WHERE username = ? AND user_id != ?',
+    const existingUsersResult = await pool.query(
+      'SELECT user_id FROM users WHERE username = $1 AND user_id != $2',
       [username, userId]
     );
+    const existingUsers = existingUsersResult.rows;
 
     if (existingUsers.length > 0) {
       return res.status(400).json({
@@ -69,8 +71,8 @@ const updateProfile = asyncHandler(async (req, res) => {
     }
   }
 
-  const [result] = await pool.execute(
-    'UPDATE users SET username = COALESCE(?, username), email = ?, full_name = ?, profile_image = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+  const result = await pool.query(
+    'UPDATE users SET username = COALESCE($1, username), email = $2, full_name = $3, profile_image = $4, updated_at = CURRENT_TIMESTAMP WHERE user_id = $5',
     [username, email, full_name, profile_image, userId]
   );
 
@@ -81,10 +83,11 @@ const updateProfile = asyncHandler(async (req, res) => {
     });
   }
 
-  const [users] = await pool.execute(
-    'SELECT user_id, username, email, full_name, role, is_active, profile_image FROM users WHERE user_id = ?',
+  const usersResult = await pool.query(
+    'SELECT user_id, username, email, full_name, role, is_active, profile_image FROM users WHERE user_id = $1',
     [userId]
   );
+  const users = usersResult.rows;
 
   res.json({
     success: true,
@@ -97,10 +100,11 @@ const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const userId = req.user.user_id;
 
-  const [users] = await pool.execute(
-    'SELECT password FROM users WHERE user_id = ?',
+  const usersResult = await pool.query(
+    'SELECT password FROM users WHERE user_id = $1',
     [userId]
   );
+  const users = usersResult.rows;
 
   if (users.length === 0) {
     return res.status(404).json({
@@ -120,8 +124,8 @@ const changePassword = asyncHandler(async (req, res) => {
 
   const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-  await pool.execute(
-    'UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+  await pool.query(
+    'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2',
     [hashedNewPassword, userId]
   );
 
@@ -144,10 +148,11 @@ const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
 
   // Check if user exists
-  const [users] = await pool.execute(
-    'SELECT user_id, username, email FROM users WHERE email = ? AND is_active = TRUE',
+  const usersResult = await pool.query(
+    'SELECT user_id, username, email FROM users WHERE email = $1 AND is_active = TRUE',
     [email]
   );
+  const users = usersResult.rows;
 
   if (users.length === 0) {
     return res.status(404).json({
@@ -163,8 +168,8 @@ const forgotPassword = asyncHandler(async (req, res) => {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
   // Store verification code
-  await pool.execute(
-    'INSERT INTO verification_codes (email, code, type, expires_at) VALUES (?, ?, ?, ?)',
+  await pool.query(
+    'INSERT INTO verification_codes (email, code, type, expires_at) VALUES ($1, $2, $3, $4)',
     [email, verificationCode, 'password_reset', expiresAt]
   );
 
@@ -189,10 +194,11 @@ const resetPassword = asyncHandler(async (req, res) => {
   const { email, verificationCode, newPassword } = req.body;
 
   // Verify the code
-  const [codes] = await pool.execute(
-    'SELECT id FROM verification_codes WHERE email = ? AND code = ? AND type = ? AND expires_at > NOW() AND used = FALSE',
+  const codesResult = await pool.query(
+    'SELECT id FROM verification_codes WHERE email = $1 AND code = $2 AND type = $3 AND expires_at > NOW() AND used = FALSE',
     [email, verificationCode, 'password_reset']
   );
+  const codes = codesResult.rows;
 
   if (codes.length === 0) {
     return res.status(400).json({
@@ -204,10 +210,11 @@ const resetPassword = asyncHandler(async (req, res) => {
   const codeId = codes[0].id;
 
   // Check if user still exists
-  const [users] = await pool.execute(
-    'SELECT user_id, username FROM users WHERE email = ? AND is_active = TRUE',
+  const usersResult = await pool.query(
+    'SELECT user_id, username FROM users WHERE email = $1 AND is_active = TRUE',
     [email]
   );
+  const users = usersResult.rows;
 
   if (users.length === 0) {
     return res.status(404).json({

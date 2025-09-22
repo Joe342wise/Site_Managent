@@ -2,9 +2,10 @@ const { pool } = require('../config/database');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 const getAllCategories = asyncHandler(async (req, res) => {
-  const [categories] = await pool.execute(
+  const categoriesResult = await pool.query(
     'SELECT * FROM categories ORDER BY sort_order, name'
   );
+  const categories = categoriesResult.rows;
 
   res.json({
     success: true,
@@ -23,31 +24,33 @@ const getEstimateItems = asyncHandler(async (req, res) => {
            (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) as total_actual_cost
     FROM estimate_items ei
     LEFT JOIN categories c ON ei.category_id = c.category_id
-    WHERE ei.estimate_id = ?
+    WHERE ei.estimate_id = $1
   `;
 
   const params = [estimate_id];
 
   if (category_id) {
-    query += ' AND ei.category_id = ?';
+    query += ` AND ei.category_id = $${params.length + 1}`;
     params.push(category_id);
   }
 
   query += ' ORDER BY c.sort_order, ei.item_id';
 
-  const [items] = await pool.execute(query, params);
+  const itemsResult = await pool.query(query, params);
+  const items = itemsResult.rows;
 
-  const [summary] = await pool.execute(`
+  const summaryResult = await pool.query(`
     SELECT
       COUNT(*) as total_items,
       SUM(total_estimated) as total_estimated,
       COUNT(DISTINCT category_id) as categories_used,
       (SELECT COUNT(*) FROM actuals a
        JOIN estimate_items ei ON a.item_id = ei.item_id
-       WHERE ei.estimate_id = ?) as items_with_actuals
+       WHERE ei.estimate_id = $1) as items_with_actuals
     FROM estimate_items
-    WHERE estimate_id = ?
-  `, [estimate_id, estimate_id]);
+    WHERE estimate_id = $1
+  `, [estimate_id]);
+  const summary = summaryResult.rows;
 
   res.json({
     success: true,
@@ -61,7 +64,7 @@ const getEstimateItems = asyncHandler(async (req, res) => {
 const getEstimateItemById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const [items] = await pool.execute(`
+  const itemsResult = await pool.query(`
     SELECT ei.*,
            c.name as category_name,
            e.title as estimate_title,
@@ -70,8 +73,9 @@ const getEstimateItemById = asyncHandler(async (req, res) => {
     LEFT JOIN categories c ON ei.category_id = c.category_id
     LEFT JOIN estimates e ON ei.estimate_id = e.estimate_id
     LEFT JOIN sites s ON e.site_id = s.site_id
-    WHERE ei.item_id = ?
+    WHERE ei.item_id = $1
   `, [id]);
+  const items = itemsResult.rows;
 
   if (items.length === 0) {
     return res.status(404).json({
@@ -80,14 +84,15 @@ const getEstimateItemById = asyncHandler(async (req, res) => {
     });
   }
 
-  const [actuals] = await pool.execute(`
+  const actualsResult = await pool.query(`
     SELECT a.*,
            u.username as recorded_by_username
     FROM actuals a
     LEFT JOIN users u ON a.recorded_by = u.user_id
-    WHERE a.item_id = ?
+    WHERE a.item_id = $1
     ORDER BY a.date_recorded DESC
   `, [id]);
+  const actuals = actualsResult.rows;
 
   res.json({
     success: true,
@@ -144,10 +149,11 @@ const createEstimateItem = asyncHandler(async (req, res) => {
     });
   }
 
-  const [estimateCheck] = await pool.execute(
-    'SELECT estimate_id FROM estimates WHERE estimate_id = ?',
+  const estimateCheckResult = await pool.query(
+    'SELECT estimate_id FROM estimates WHERE estimate_id = $1',
     [estimate_id]
   );
+  const estimateCheck = estimateCheckResult.rows;
 
   if (estimateCheck.length === 0) {
     return res.status(400).json({
@@ -156,10 +162,11 @@ const createEstimateItem = asyncHandler(async (req, res) => {
     });
   }
 
-  const [categoryCheck] = await pool.execute(
-    'SELECT category_id FROM categories WHERE category_id = ?',
+  const categoryCheckResult = await pool.query(
+    'SELECT category_id FROM categories WHERE category_id = $1',
     [category_id]
   );
+  const categoryCheck = categoryCheckResult.rows;
 
   if (categoryCheck.length === 0) {
     return res.status(400).json({
@@ -168,8 +175,8 @@ const createEstimateItem = asyncHandler(async (req, res) => {
     });
   }
 
-  const [result] = await pool.execute(
-    'INSERT INTO estimate_items (estimate_id, description, category_id, quantity, unit, unit_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  const result = await pool.query(
+    'INSERT INTO estimate_items (estimate_id, description, category_id, quantity, unit, unit_price, notes) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING item_id',
     [
       parseInt(estimate_id),
       description.trim(),
@@ -181,20 +188,21 @@ const createEstimateItem = asyncHandler(async (req, res) => {
     ]
   );
 
-  await pool.execute(
-    'UPDATE estimates SET total_estimated = (SELECT SUM(total_estimated) FROM estimate_items WHERE estimate_id = ?) WHERE estimate_id = ?',
-    [estimate_id, estimate_id]
+  await pool.query(
+    'UPDATE estimates SET total_estimated = (SELECT SUM(total_estimated) FROM estimate_items WHERE estimate_id = $1) WHERE estimate_id = $1',
+    [estimate_id]
   );
 
-  const [newItem] = await pool.execute(`
+  const newItemResult = await pool.query(`
     SELECT ei.*,
            c.name as category_name,
            0 as has_actuals,
            0 as total_actual_cost
     FROM estimate_items ei
     LEFT JOIN categories c ON ei.category_id = c.category_id
-    WHERE ei.item_id = ?
-  `, [result.insertId]);
+    WHERE ei.item_id = $1
+  `, [result.rows[0].item_id]);
+  const newItem = newItemResult.rows;
 
   res.status(201).json({
     success: true,
@@ -207,8 +215,8 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { description, category_id, quantity, unit, unit_price, notes } = req.body;
 
-  const [existingItem] = await pool.execute(
-    'SELECT estimate_id FROM estimate_items WHERE item_id = ?',
+  const [existingItem] = await pool.query(
+    'SELECT estimate_id FROM estimate_items WHERE item_id = $1',
     [id]
   );
 
@@ -229,8 +237,8 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
     params.push(description);
   }
   if (category_id !== undefined) {
-    const [categoryCheck] = await pool.execute(
-      'SELECT category_id FROM categories WHERE category_id = ?',
+    const [categoryCheck] = await pool.query(
+      'SELECT category_id FROM categories WHERE category_id = $1',
       [category_id]
     );
 
@@ -271,8 +279,8 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
   updates.push('updated_at = CURRENT_TIMESTAMP');
   params.push(id);
 
-  const [result] = await pool.execute(
-    `UPDATE estimate_items SET ${updates.join(', ')} WHERE item_id = ?`,
+  const [result] = await pool.query(
+    `UPDATE estimate_items SET ${updates.join(', ')} WHERE item_id = $1`,
     params
   );
 
@@ -283,12 +291,12 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
     });
   }
 
-  await pool.execute(
-    'UPDATE estimates SET total_estimated = (SELECT SUM(total_estimated) FROM estimate_items WHERE estimate_id = ?) WHERE estimate_id = ?',
+  await pool.query(
+    'UPDATE estimates SET total_estimated = (SELECT SUM(total_estimated) FROM estimate_items WHERE estimate_id = $1) WHERE estimate_id = $1',
     [estimate_id, estimate_id]
   );
 
-  const [updatedItem] = await pool.execute(`
+  const [updatedItem] = await pool.query(`
     SELECT ei.*,
            c.name as category_name,
            (SELECT COUNT(*) FROM actuals a WHERE a.item_id = ei.item_id) as has_actuals,
@@ -308,8 +316,8 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
 const deleteEstimateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const [existingItem] = await pool.execute(
-    'SELECT estimate_id FROM estimate_items WHERE item_id = ?',
+  const [existingItem] = await pool.query(
+    'SELECT estimate_id FROM estimate_items WHERE item_id = $1',
     [id]
   );
 
@@ -322,8 +330,8 @@ const deleteEstimateItem = asyncHandler(async (req, res) => {
 
   const estimate_id = existingItem[0].estimate_id;
 
-  const [actualCount] = await pool.execute(
-    'SELECT COUNT(*) as count FROM actuals WHERE item_id = ?',
+  const [actualCount] = await pool.query(
+    'SELECT COUNT(*) as count FROM actuals WHERE item_id = $1',
     [id]
   );
 
@@ -334,8 +342,8 @@ const deleteEstimateItem = asyncHandler(async (req, res) => {
     });
   }
 
-  const [result] = await pool.execute(
-    'DELETE FROM estimate_items WHERE item_id = ?',
+  const [result] = await pool.query(
+    'DELETE FROM estimate_items WHERE item_id = $1',
     [id]
   );
 
@@ -346,8 +354,8 @@ const deleteEstimateItem = asyncHandler(async (req, res) => {
     });
   }
 
-  await pool.execute(
-    'UPDATE estimates SET total_estimated = (SELECT COALESCE(SUM(total_estimated), 0) FROM estimate_items WHERE estimate_id = ?) WHERE estimate_id = ?',
+  await pool.query(
+    'UPDATE estimates SET total_estimated = (SELECT COALESCE(SUM(total_estimated), 0) FROM estimate_items WHERE estimate_id = $1) WHERE estimate_id = $1',
     [estimate_id, estimate_id]
   );
 
@@ -368,8 +376,8 @@ const bulkCreateEstimateItems = asyncHandler(async (req, res) => {
     });
   }
 
-  const [estimateCheck] = await pool.execute(
-    'SELECT estimate_id FROM estimates WHERE estimate_id = ?',
+  const [estimateCheck] = await pool.query(
+    'SELECT estimate_id FROM estimates WHERE estimate_id = $1',
     [estimate_id]
   );
 
@@ -407,7 +415,7 @@ const bulkCreateEstimateItems = asyncHandler(async (req, res) => {
     }
 
     await connection.execute(
-      'UPDATE estimates SET total_estimated = (SELECT SUM(total_estimated) FROM estimate_items WHERE estimate_id = ?) WHERE estimate_id = ?',
+      'UPDATE estimates SET total_estimated = (SELECT SUM(total_estimated) FROM estimate_items WHERE estimate_id = $1) WHERE estimate_id = $1',
       [estimate_id, estimate_id]
     );
 
@@ -429,7 +437,7 @@ const bulkCreateEstimateItems = asyncHandler(async (req, res) => {
 const getItemsByCategory = asyncHandler(async (req, res) => {
   const { estimate_id } = req.params;
 
-  const [itemsByCategory] = await pool.execute(`
+  const [itemsByCategory] = await pool.query(`
     SELECT
       c.category_id,
       c.name as category_name,
@@ -447,7 +455,7 @@ const getItemsByCategory = asyncHandler(async (req, res) => {
         )
       ) as items
     FROM categories c
-    LEFT JOIN estimate_items ei ON c.category_id = ei.category_id AND ei.estimate_id = ?
+    LEFT JOIN estimate_items ei ON c.category_id = ei.category_id AND ei.estimate_id = $1
     GROUP BY c.category_id, c.name, c.description
     ORDER BY c.sort_order
   `, [estimate_id]);

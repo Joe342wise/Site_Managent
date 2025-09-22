@@ -36,27 +36,27 @@ const getAllActuals = asyncHandler(async (req, res) => {
   let whereConditions = [];
 
   if (site_id) {
-    whereConditions.push('s.site_id = ?');
+    whereConditions.push(`s.site_id = $${params.length + 1}`);
     params.push(site_id);
   }
 
   if (estimate_id) {
-    whereConditions.push('e.estimate_id = ?');
+    whereConditions.push(`e.estimate_id = $${params.length + 1}`);
     params.push(estimate_id);
   }
 
   if (item_id) {
-    whereConditions.push('a.item_id = ?');
+    whereConditions.push(`a.item_id = $${params.length + 1}`);
     params.push(item_id);
   }
 
   if (date_from) {
-    whereConditions.push('a.date_recorded >= ?');
+    whereConditions.push(`a.date_recorded >= $${params.length + 1}`);
     params.push(date_from);
   }
 
   if (date_to) {
-    whereConditions.push('a.date_recorded <= ?');
+    whereConditions.push(`a.date_recorded <= $${params.length + 1}`);
     params.push(date_to);
   }
 
@@ -68,8 +68,9 @@ const getAllActuals = asyncHandler(async (req, res) => {
 
   query += ` ORDER BY a.date_recorded DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
 
-  const [actuals] = await pool.execute(query, params);
-  const [countResult] = await pool.execute(countQuery, params);
+  const actualsResult = await pool.query(query, params);
+  const countResult = await pool.query(countQuery, params);
+  const actuals = actualsResult.rows;
 
   // Get summary statistics for the filtered results
   let summaryQuery = `
@@ -88,9 +89,9 @@ const getAllActuals = asyncHandler(async (req, res) => {
     summaryQuery += ' WHERE ' + whereConditions.join(' AND ');
   }
 
-  const [summaryResult] = await pool.execute(summaryQuery, params);
+  const summaryResult = await pool.query(summaryQuery, params);
 
-  const total = countResult[0].total;
+  const total = countResult.rows[0].total;
   const totalPages = Math.ceil(total / parseInt(limit));
 
   res.json({
@@ -104,14 +105,14 @@ const getAllActuals = asyncHandler(async (req, res) => {
       hasNext: parseInt(page) < totalPages,
       hasPrev: parseInt(page) > 1
     },
-    summary: summaryResult[0]
+    summary: summaryResult.rows[0]
   });
 });
 
 const getActualById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const [actuals] = await pool.execute(`
+  const actualsResult = await pool.query(`
     SELECT a.*,
            ei.description as item_description,
            ei.quantity as estimated_quantity,
@@ -128,8 +129,9 @@ const getActualById = asyncHandler(async (req, res) => {
     JOIN sites s ON e.site_id = s.site_id
     JOIN categories c ON ei.category_id = c.category_id
     LEFT JOIN users u ON a.recorded_by = u.user_id
-    WHERE a.actual_id = ?
+    WHERE a.actual_id = $1
   `, [id]);
+  const actuals = actualsResult.rows;
 
   if (actuals.length === 0) {
     return res.status(404).json({
@@ -163,10 +165,11 @@ const createActual = asyncHandler(async (req, res) => {
     });
   }
 
-  const [itemCheck] = await pool.execute(
-    'SELECT item_id FROM estimate_items WHERE item_id = ?',
+  const itemCheckResult = await pool.query(
+    'SELECT item_id FROM estimate_items WHERE item_id = $1',
     [item_id]
   );
+  const itemCheck = itemCheckResult.rows;
 
   if (itemCheck.length === 0) {
     return res.status(400).json({
@@ -175,8 +178,8 @@ const createActual = asyncHandler(async (req, res) => {
     });
   }
 
-  const [result] = await pool.execute(
-    'INSERT INTO actuals (item_id, actual_unit_price, actual_quantity, date_recorded, notes, recorded_by) VALUES (?, ?, ?, ?, ?, ?)',
+  const result = await pool.query(
+    'INSERT INTO actuals (item_id, actual_unit_price, actual_quantity, date_recorded, notes, recorded_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING actual_id',
     [
       parseInt(item_id),
       parseFloat(actual_unit_price),
@@ -187,7 +190,7 @@ const createActual = asyncHandler(async (req, res) => {
     ]
   );
 
-  const [newActual] = await pool.execute(`
+  const newActualResult = await pool.query(`
     SELECT a.*,
            ei.description as item_description,
            ei.quantity as estimated_quantity,
@@ -204,8 +207,9 @@ const createActual = asyncHandler(async (req, res) => {
     JOIN sites s ON e.site_id = s.site_id
     JOIN categories c ON ei.category_id = c.category_id
     LEFT JOIN users u ON a.recorded_by = u.user_id
-    WHERE a.actual_id = ?
-  `, [result.insertId]);
+    WHERE a.actual_id = $1
+  `, [result.rows[0].actual_id]);
+  const newActual = newActualResult.rows;
 
   res.status(201).json({
     success: true,
@@ -222,19 +226,19 @@ const updateActual = asyncHandler(async (req, res) => {
   const params = [];
 
   if (actual_unit_price !== undefined) {
-    updates.push('actual_unit_price = ?');
+    updates.push(`actual_unit_price = $${params.length + 1}`);
     params.push(actual_unit_price);
   }
   if (actual_quantity !== undefined) {
-    updates.push('actual_quantity = ?');
+    updates.push(`actual_quantity = $${params.length + 1}`);
     params.push(actual_quantity);
   }
   if (date_recorded !== undefined) {
-    updates.push('date_recorded = ?');
+    updates.push(`date_recorded = $${params.length + 1}`);
     params.push(date_recorded);
   }
   if (notes !== undefined) {
-    updates.push('notes = ?');
+    updates.push(`notes = $${params.length + 1}`);
     params.push(notes);
   }
 
@@ -248,8 +252,8 @@ const updateActual = asyncHandler(async (req, res) => {
   updates.push('updated_at = CURRENT_TIMESTAMP');
   params.push(id);
 
-  const [result] = await pool.execute(
-    `UPDATE actuals SET ${updates.join(', ')} WHERE actual_id = ?`,
+  const result = await pool.query(
+    `UPDATE actuals SET ${updates.join(', ')} WHERE actual_id = $${params.length}`,
     params
   );
 
@@ -260,7 +264,7 @@ const updateActual = asyncHandler(async (req, res) => {
     });
   }
 
-  const [updatedActual] = await pool.execute(`
+  const updatedActualResult = await pool.query(`
     SELECT a.*,
            ei.description as item_description,
            ei.quantity as estimated_quantity,
@@ -277,8 +281,9 @@ const updateActual = asyncHandler(async (req, res) => {
     JOIN sites s ON e.site_id = s.site_id
     JOIN categories c ON ei.category_id = c.category_id
     LEFT JOIN users u ON a.recorded_by = u.user_id
-    WHERE a.actual_id = ?
+    WHERE a.actual_id = $1
   `, [id]);
+  const updatedActual = updatedActualResult.rows;
 
   res.json({
     success: true,
@@ -290,8 +295,8 @@ const updateActual = asyncHandler(async (req, res) => {
 const deleteActual = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const [result] = await pool.execute(
-    'DELETE FROM actuals WHERE actual_id = ?',
+  const result = await pool.query(
+    'DELETE FROM actuals WHERE actual_id = $1',
     [id]
   );
 
@@ -311,7 +316,7 @@ const deleteActual = asyncHandler(async (req, res) => {
 const getActualsByEstimate = asyncHandler(async (req, res) => {
   const { estimate_id } = req.params;
 
-  const [actuals] = await pool.execute(`
+  const actualsResult = await pool.query(`
     SELECT a.*,
            ei.description as item_description,
            ei.quantity as estimated_quantity,
@@ -324,11 +329,12 @@ const getActualsByEstimate = asyncHandler(async (req, res) => {
     JOIN estimate_items ei ON a.item_id = ei.item_id
     JOIN categories c ON ei.category_id = c.category_id
     LEFT JOIN users u ON a.recorded_by = u.user_id
-    WHERE ei.estimate_id = ?
+    WHERE ei.estimate_id = $1
     ORDER BY c.sort_order, ei.item_id, a.date_recorded DESC
   `, [estimate_id]);
+  const actuals = actualsResult.rows;
 
-  const [summary] = await pool.execute(`
+  const summaryResult = await pool.query(`
     SELECT
       COUNT(DISTINCT a.actual_id) as total_actuals,
       COUNT(DISTINCT a.item_id) as items_with_actuals,
@@ -338,8 +344,9 @@ const getActualsByEstimate = asyncHandler(async (req, res) => {
       AVG(a.variance_percentage) as average_variance_percentage
     FROM actuals a
     JOIN estimate_items ei ON a.item_id = ei.item_id
-    WHERE ei.estimate_id = ?
+    WHERE ei.estimate_id = $1
   `, [estimate_id]);
+  const summary = summaryResult.rows;
 
   res.json({
     success: true,
@@ -353,16 +360,17 @@ const getActualsByEstimate = asyncHandler(async (req, res) => {
 const getActualsByItem = asyncHandler(async (req, res) => {
   const { item_id } = req.params;
 
-  const [actuals] = await pool.execute(`
+  const actualsResult = await pool.query(`
     SELECT a.*,
            u.username as recorded_by_username
     FROM actuals a
     LEFT JOIN users u ON a.recorded_by = u.user_id
-    WHERE a.item_id = ?
+    WHERE a.item_id = $1
     ORDER BY a.date_recorded DESC
   `, [item_id]);
+  const actuals = actualsResult.rows;
 
-  const [itemInfo] = await pool.execute(`
+  const itemInfoResult = await pool.query(`
     SELECT ei.*,
            c.name as category_name,
            e.title as estimate_title,
@@ -371,8 +379,9 @@ const getActualsByItem = asyncHandler(async (req, res) => {
     JOIN estimates e ON ei.estimate_id = e.estimate_id
     JOIN sites s ON e.site_id = s.site_id
     JOIN categories c ON ei.category_id = c.category_id
-    WHERE ei.item_id = ?
+    WHERE ei.item_id = $1
   `, [item_id]);
+  const itemInfo = itemInfoResult.rows;
 
   if (itemInfo.length === 0) {
     return res.status(404).json({
@@ -391,7 +400,7 @@ const getActualsByItem = asyncHandler(async (req, res) => {
 });
 
 const getActualsStatistics = asyncHandler(async (req, res) => {
-  const [stats] = await pool.execute(`
+  const statsResult = await pool.query(`
     SELECT
       COUNT(*) as total_actuals,
       COUNT(DISTINCT item_id) as items_with_actuals,
@@ -403,8 +412,9 @@ const getActualsStatistics = asyncHandler(async (req, res) => {
       SUM(CASE WHEN variance_amount = 0 THEN 1 ELSE 0 END) as on_budget_count
     FROM actuals
   `);
+  const stats = statsResult.rows;
 
-  const [recentActuals] = await pool.execute(`
+  const recentActualsResult = await pool.query(`
     SELECT a.actual_id, a.total_actual, a.variance_amount, a.date_recorded,
            ei.description as item_description,
            s.name as site_name
@@ -415,8 +425,9 @@ const getActualsStatistics = asyncHandler(async (req, res) => {
     ORDER BY a.date_recorded DESC
     LIMIT 10
   `);
+  const recentActuals = recentActualsResult.rows;
 
-  const [varianceByCategory] = await pool.execute(`
+  const varianceByCategoryResult = await pool.query(`
     SELECT
       c.name as category_name,
       COUNT(a.actual_id) as actual_count,
@@ -430,6 +441,7 @@ const getActualsStatistics = asyncHandler(async (req, res) => {
     GROUP BY c.category_id, c.name
     ORDER BY total_variance DESC
   `);
+  const varianceByCategory = varianceByCategoryResult.rows;
 
   res.json({
     success: true,

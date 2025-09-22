@@ -13,12 +13,12 @@ const getAllUsers = asyncHandler(async (req, res) => {
   let whereConditions = [];
 
   if (role) {
-    whereConditions.push('role = ?');
+    whereConditions.push(`role = $${params.length + 1}`);
     params.push(role);
   }
 
   if (search) {
-    whereConditions.push('(username LIKE ? OR email LIKE ? OR full_name LIKE ?)');
+    whereConditions.push(`(username LIKE $${params.length + 1} OR email LIKE $${params.length + 2} OR full_name LIKE $${params.length + 3})`);
     const searchTerm = `%${search}%`;
     params.push(searchTerm, searchTerm, searchTerm);
   }
@@ -31,10 +31,11 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
   query += ` ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
 
-  const [users] = await pool.execute(query, params);
-  const [countResult] = await pool.execute(countQuery, params);
+  const usersResult = await pool.query(query, params);
+  const countResult = await pool.query(countQuery, params);
+  const users = usersResult.rows;
 
-  const total = countResult[0].total;
+  const total = countResult.rows[0].total;
   const totalPages = Math.ceil(total / parseInt(limit));
 
   res.json({
@@ -55,10 +56,11 @@ const getAllUsers = asyncHandler(async (req, res) => {
 const getUserById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const [users] = await pool.execute(
-    'SELECT user_id, username, email, full_name, role, is_active, created_at, updated_at FROM users WHERE user_id = ?',
+  const usersResult = await pool.query(
+    'SELECT user_id, username, email, full_name, role, is_active, created_at, updated_at FROM users WHERE user_id = $1',
     [id]
   );
+  const users = usersResult.rows;
 
   if (users.length === 0) {
     return res.status(404).json({
@@ -78,15 +80,16 @@ const createUser = asyncHandler(async (req, res) => {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const [result] = await pool.execute(
-    'INSERT INTO users (username, password, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
+  const result = await pool.query(
+    'INSERT INTO users (username, password, email, full_name, role) VALUES ($1, $2, $3, $4, $5) RETURNING user_id',
     [username, hashedPassword, email, full_name, role]
   );
 
-  const [newUser] = await pool.execute(
-    'SELECT user_id, username, email, full_name, role, is_active, created_at FROM users WHERE user_id = ?',
-    [result.insertId]
+  const newUserResult = await pool.query(
+    'SELECT user_id, username, email, full_name, role, is_active, created_at FROM users WHERE user_id = $1',
+    [result.rows[0].user_id]
   );
+  const newUser = newUserResult.rows;
 
   res.status(201).json({
     success: true,
@@ -103,23 +106,23 @@ const updateUser = asyncHandler(async (req, res) => {
   const params = [];
 
   if (username !== undefined) {
-    updates.push('username = ?');
+    updates.push(`username = $${params.length + 1}`);
     params.push(username);
   }
   if (email !== undefined) {
-    updates.push('email = ?');
+    updates.push(`email = $${params.length + 1}`);
     params.push(email);
   }
   if (full_name !== undefined) {
-    updates.push('full_name = ?');
+    updates.push(`full_name = $${params.length + 1}`);
     params.push(full_name);
   }
   if (role !== undefined) {
-    updates.push('role = ?');
+    updates.push(`role = $${params.length + 1}`);
     params.push(role);
   }
   if (is_active !== undefined) {
-    updates.push('is_active = ?');
+    updates.push(`is_active = $${params.length + 1}`);
     params.push(is_active);
   }
 
@@ -133,8 +136,8 @@ const updateUser = asyncHandler(async (req, res) => {
   updates.push('updated_at = CURRENT_TIMESTAMP');
   params.push(id);
 
-  const [result] = await pool.execute(
-    `UPDATE users SET ${updates.join(', ')} WHERE user_id = ?`,
+  const result = await pool.query(
+    `UPDATE users SET ${updates.join(', ')} WHERE user_id = $${params.length}`,
     params
   );
 
@@ -145,10 +148,11 @@ const updateUser = asyncHandler(async (req, res) => {
     });
   }
 
-  const [updatedUser] = await pool.execute(
-    'SELECT user_id, username, email, full_name, role, is_active, created_at, updated_at FROM users WHERE user_id = ?',
+  const updatedUserResult = await pool.query(
+    'SELECT user_id, username, email, full_name, role, is_active, created_at, updated_at FROM users WHERE user_id = $1',
     [id]
   );
+  const updatedUser = updatedUserResult.rows;
 
   res.json({
     success: true,
@@ -167,8 +171,8 @@ const deleteUser = asyncHandler(async (req, res) => {
     });
   }
 
-  const [result] = await pool.execute(
-    'UPDATE users SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+  const result = await pool.query(
+    'UPDATE users SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE user_id = $1',
     [id]
   );
 
@@ -191,8 +195,8 @@ const resetUserPassword = asyncHandler(async (req, res) => {
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  const [result] = await pool.execute(
-    'UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+  const result = await pool.query(
+    'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2',
     [hashedPassword, id]
   );
 

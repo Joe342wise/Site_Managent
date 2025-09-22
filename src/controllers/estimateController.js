@@ -27,17 +27,17 @@ const getAllEstimates = asyncHandler(async (req, res) => {
   let whereConditions = [];
 
   if (site_id) {
-    whereConditions.push('e.site_id = ?');
+    whereConditions.push(`e.site_id = $${params.length + 1}`);
     params.push(site_id);
   }
 
   if (status) {
-    whereConditions.push('e.status = ?');
+    whereConditions.push(`e.status = $${params.length + 1}`);
     params.push(status);
   }
 
   if (search) {
-    whereConditions.push('(e.title LIKE ? OR e.description LIKE ?)');
+    whereConditions.push(`(e.title LIKE $${params.length + 1} OR e.description LIKE $${params.length + 2})`);
     const searchTerm = `%${search}%`;
     params.push(searchTerm, searchTerm);
   }
@@ -50,10 +50,11 @@ const getAllEstimates = asyncHandler(async (req, res) => {
 
   query += ` ORDER BY e.date_created DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
 
-  const [estimates] = await pool.execute(query, params);
-  const [countResult] = await pool.execute(countQuery, params);
+  const estimatesResult = await pool.query(query, params);
+  const countResult = await pool.query(countQuery, params);
+  const estimates = estimatesResult.rows;
 
-  const total = countResult[0].total;
+  const total = countResult.rows[0].total;
   const totalPages = Math.ceil(total / parseInt(limit));
 
   res.json({
@@ -74,7 +75,7 @@ const getAllEstimates = asyncHandler(async (req, res) => {
 const getEstimateById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const [estimates] = await pool.execute(`
+  const estimatesResult = await pool.query(`
     SELECT e.*,
            s.name as site_name,
            s.location as site_location,
@@ -86,8 +87,9 @@ const getEstimateById = asyncHandler(async (req, res) => {
     FROM estimates e
     LEFT JOIN sites s ON e.site_id = s.site_id
     LEFT JOIN users u ON e.created_by = u.user_id
-    WHERE e.estimate_id = ?
+    WHERE e.estimate_id = $1
   `, [id]);
+  const estimates = estimatesResult.rows;
 
   if (estimates.length === 0) {
     return res.status(404).json({
@@ -96,24 +98,26 @@ const getEstimateById = asyncHandler(async (req, res) => {
     });
   }
 
-  const [items] = await pool.execute(`
+  const itemsResult = await pool.query(`
     SELECT ei.*,
            c.name as category_name,
            (SELECT COUNT(*) FROM actuals a WHERE a.item_id = ei.item_id) as has_actuals
     FROM estimate_items ei
     LEFT JOIN categories c ON ei.category_id = c.category_id
-    WHERE ei.estimate_id = ?
+    WHERE ei.estimate_id = $1
     ORDER BY c.sort_order, ei.item_id
   `, [id]);
+  const items = itemsResult.rows;
 
-  const [summary] = await pool.execute(`
+  const summaryResult = await pool.query(`
     SELECT
       COUNT(*) as total_items,
       SUM(total_estimated) as total_amount,
       COUNT(DISTINCT category_id) as categories_used
     FROM estimate_items
-    WHERE estimate_id = ?
+    WHERE estimate_id = $1
   `, [id]);
+  const summary = summaryResult.rows;
 
   res.json({
     success: true,
@@ -129,10 +133,11 @@ const createEstimate = asyncHandler(async (req, res) => {
   const { site_id, title, description, date_created = new Date() } = req.body;
   const created_by = req.user.user_id;
 
-  const [siteCheck] = await pool.execute(
-    'SELECT site_id FROM sites WHERE site_id = ?',
+  const siteCheckResult = await pool.query(
+    'SELECT site_id FROM sites WHERE site_id = $1',
     [site_id]
   );
+  const siteCheck = siteCheckResult.rows;
 
   if (siteCheck.length === 0) {
     return res.status(400).json({
@@ -141,8 +146,8 @@ const createEstimate = asyncHandler(async (req, res) => {
     });
   }
 
-  const [result] = await pool.execute(
-    'INSERT INTO estimates (site_id, title, description, date_created, created_by) VALUES (?, ?, ?, ?, ?)',
+  const result = await pool.query(
+    'INSERT INTO estimates (site_id, title, description, date_created, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING estimate_id',
     [
       parseInt(site_id),
       title.trim(),
@@ -152,7 +157,7 @@ const createEstimate = asyncHandler(async (req, res) => {
     ]
   );
 
-  const [newEstimate] = await pool.execute(`
+  const newEstimateResult = await pool.query(`
     SELECT e.*,
            s.name as site_name,
            s.location as site_location,
@@ -163,8 +168,9 @@ const createEstimate = asyncHandler(async (req, res) => {
     FROM estimates e
     LEFT JOIN sites s ON e.site_id = s.site_id
     LEFT JOIN users u ON e.created_by = u.user_id
-    WHERE e.estimate_id = ?
-  `, [result.insertId]);
+    WHERE e.estimate_id = $1
+  `, [result.rows[0].estimate_id]);
+  const newEstimate = newEstimateResult.rows;
 
   res.status(201).json({
     success: true,
@@ -181,15 +187,15 @@ const updateEstimate = asyncHandler(async (req, res) => {
   const params = [];
 
   if (title !== undefined) {
-    updates.push('title = ?');
+    updates.push(`title = $${params.length + 1}`);
     params.push(title.trim());
   }
   if (description !== undefined) {
-    updates.push('description = ?');
+    updates.push(`description = $${params.length + 1}`);
     params.push(description && description.trim() ? description.trim() : null);
   }
   if (status !== undefined) {
-    updates.push('status = ?');
+    updates.push(`status = $${params.length + 1}`);
     params.push(status);
   }
 
@@ -203,8 +209,8 @@ const updateEstimate = asyncHandler(async (req, res) => {
   updates.push('updated_at = CURRENT_TIMESTAMP');
   params.push(id);
 
-  const [result] = await pool.execute(
-    `UPDATE estimates SET ${updates.join(', ')} WHERE estimate_id = ?`,
+  const result = await pool.query(
+    `UPDATE estimates SET ${updates.join(', ')} WHERE estimate_id = $${params.length}`,
     params
   );
 
@@ -215,7 +221,7 @@ const updateEstimate = asyncHandler(async (req, res) => {
     });
   }
 
-  const [updatedEstimate] = await pool.execute(`
+  const updatedEstimateResult = await pool.query(`
     SELECT e.*,
            s.name as site_name,
            s.location as site_location,
@@ -229,8 +235,9 @@ const updateEstimate = asyncHandler(async (req, res) => {
     FROM estimates e
     LEFT JOIN sites s ON e.site_id = s.site_id
     LEFT JOIN users u ON e.created_by = u.user_id
-    WHERE e.estimate_id = ?
+    WHERE e.estimate_id = $1
   `, [id]);
+  const updatedEstimate = updatedEstimateResult.rows;
 
   res.json({
     success: true,
@@ -242,10 +249,11 @@ const updateEstimate = asyncHandler(async (req, res) => {
 const deleteEstimate = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const [itemCount] = await pool.execute(
-    'SELECT COUNT(*) as count FROM estimate_items WHERE estimate_id = ?',
+  const itemCountResult = await pool.query(
+    'SELECT COUNT(*) as count FROM estimate_items WHERE estimate_id = $1',
     [id]
   );
+  const itemCount = itemCountResult.rows;
 
   if (itemCount[0].count > 0) {
     return res.status(400).json({
@@ -254,8 +262,8 @@ const deleteEstimate = asyncHandler(async (req, res) => {
     });
   }
 
-  const [result] = await pool.execute(
-    'DELETE FROM estimates WHERE estimate_id = ?',
+  const result = await pool.query(
+    'DELETE FROM estimates WHERE estimate_id = $1',
     [id]
   );
 
@@ -273,7 +281,7 @@ const deleteEstimate = asyncHandler(async (req, res) => {
 });
 
 const getEstimateStatistics = asyncHandler(async (req, res) => {
-  const [stats] = await pool.execute(`
+  const statsResult = await pool.query(`
     SELECT
       COUNT(*) as total_estimates,
       SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as draft_estimates,
@@ -283,14 +291,16 @@ const getEstimateStatistics = asyncHandler(async (req, res) => {
       AVG(total_estimated) as average_estimate_value
     FROM estimates
   `);
+  const stats = statsResult.rows;
 
-  const [recentEstimates] = await pool.execute(`
+  const recentEstimatesResult = await pool.query(`
     SELECT e.estimate_id, e.title, e.status, e.date_created, s.name as site_name
     FROM estimates e
     LEFT JOIN sites s ON e.site_id = s.site_id
     ORDER BY e.date_created DESC
     LIMIT 5
   `);
+  const recentEstimates = recentEstimatesResult.rows;
 
   res.json({
     success: true,
@@ -306,10 +316,11 @@ const duplicateEstimate = asyncHandler(async (req, res) => {
   const { title } = req.body;
   const created_by = req.user.user_id;
 
-  const [originalEstimate] = await pool.execute(
-    'SELECT * FROM estimates WHERE estimate_id = ?',
+  const originalEstimateResult = await pool.query(
+    'SELECT * FROM estimates WHERE estimate_id = $1',
     [id]
   );
+  const originalEstimate = originalEstimateResult.rows;
 
   if (originalEstimate.length === 0) {
     return res.status(404).json({
@@ -320,26 +331,27 @@ const duplicateEstimate = asyncHandler(async (req, res) => {
 
   const original = originalEstimate[0];
 
-  const [newEstimateResult] = await pool.execute(
-    'INSERT INTO estimates (site_id, title, description, date_created, created_by) VALUES (?, ?, ?, ?, ?)',
+  const newEstimateResult = await pool.query(
+    'INSERT INTO estimates (site_id, title, description, date_created, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING estimate_id',
     [original.site_id, title || `${original.title} (Copy)`, original.description, new Date(), created_by]
   );
 
-  const newEstimateId = newEstimateResult.insertId;
+  const newEstimateId = newEstimateResult.rows[0].estimate_id;
 
-  const [originalItems] = await pool.execute(
-    'SELECT * FROM estimate_items WHERE estimate_id = ?',
+  const originalItemsResult = await pool.query(
+    'SELECT * FROM estimate_items WHERE estimate_id = $1',
     [id]
   );
+  const originalItems = originalItemsResult.rows;
 
   for (const item of originalItems) {
-    await pool.execute(
-      'INSERT INTO estimate_items (estimate_id, description, category_id, quantity, unit, unit_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    await pool.query(
+      'INSERT INTO estimate_items (estimate_id, description, category_id, quantity, unit, unit_price, notes) VALUES ($1, $2, $3, $4, $5, $6, $7)',
       [newEstimateId, item.description, item.category_id, item.quantity, item.unit, item.unit_price, item.notes]
     );
   }
 
-  const [newEstimate] = await pool.execute(`
+  const newEstimateResultFinal = await pool.query(`
     SELECT e.*,
            s.name as site_name,
            s.location as site_location,
@@ -350,8 +362,9 @@ const duplicateEstimate = asyncHandler(async (req, res) => {
     FROM estimates e
     LEFT JOIN sites s ON e.site_id = s.site_id
     LEFT JOIN users u ON e.created_by = u.user_id
-    WHERE e.estimate_id = ?
+    WHERE e.estimate_id = $1
   `, [newEstimateId]);
+  const newEstimate = newEstimateResultFinal.rows;
 
   res.status(201).json({
     success: true,

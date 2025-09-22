@@ -25,12 +25,12 @@ const getAllSites = asyncHandler(async (req, res) => {
   let whereConditions = [];
 
   if (status) {
-    whereConditions.push('s.status = ?');
+    whereConditions.push(`s.status = $${whereParams.length + 1}`);
     whereParams.push(status);
   }
 
   if (search) {
-    whereConditions.push('(s.name LIKE ? OR s.location LIKE ?)');
+    whereConditions.push(`(s.name LIKE $${whereParams.length + 1} OR s.location LIKE $${whereParams.length + 2})`);
     const searchTerm = `%${search}%`;
     whereParams.push(searchTerm, searchTerm);
   }
@@ -43,10 +43,11 @@ const getAllSites = asyncHandler(async (req, res) => {
 
   query += ` ORDER BY s.created_at DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
 
-  const [sites] = await pool.execute(query, whereParams);
-  const [countResult] = await pool.execute(countQuery, whereParams);
+  const sitesResult = await pool.query(query, whereParams);
+  const countResult = await pool.query(countQuery, whereParams);
+  const sites = sitesResult.rows;
 
-  const total = countResult[0].total;
+  const total = countResult.rows[0].total;
   const totalPages = Math.ceil(total / parseInt(limit));
 
   res.json({
@@ -67,7 +68,7 @@ const getAllSites = asyncHandler(async (req, res) => {
 const getSiteById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const [sites] = await pool.execute(`
+  const sitesResult = await pool.query(`
     SELECT s.*,
            u.username as created_by_username,
            (SELECT COUNT(*) FROM estimates e WHERE e.site_id = s.site_id) as estimate_count,
@@ -79,8 +80,9 @@ const getSiteById = asyncHandler(async (req, res) => {
             WHERE e.site_id = s.site_id) as total_purchased_amount
     FROM sites s
     LEFT JOIN users u ON s.created_by = u.user_id
-    WHERE s.site_id = ?
+    WHERE s.site_id = $1
   `, [id]);
+  const sites = sitesResult.rows;
 
   if (sites.length === 0) {
     return res.status(404).json({
@@ -89,10 +91,11 @@ const getSiteById = asyncHandler(async (req, res) => {
     });
   }
 
-  const [estimates] = await pool.execute(
-    'SELECT estimate_id, title, date_created, status, total_estimated FROM estimates WHERE site_id = ? ORDER BY date_created DESC',
+  const estimatesResult = await pool.query(
+    'SELECT estimate_id, title, date_created, status, total_estimated FROM estimates WHERE site_id = $1 ORDER BY date_created DESC',
     [id]
   );
+  const estimates = estimatesResult.rows;
 
   res.json({
     success: true,
@@ -107,8 +110,8 @@ const createSite = asyncHandler(async (req, res) => {
   const { name, location, start_date, end_date, status = 'planning', budget_limit, notes } = req.body;
   const created_by = req.user.user_id;
 
-  const [result] = await pool.execute(
-    'INSERT INTO sites (name, location, start_date, end_date, status, budget_limit, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+  const result = await pool.query(
+    'INSERT INTO sites (name, location, start_date, end_date, status, budget_limit, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING site_id',
     [
       name.trim(),
       location && location.trim() ? location.trim() : null,
@@ -121,7 +124,7 @@ const createSite = asyncHandler(async (req, res) => {
     ]
   );
 
-  const [newSite] = await pool.execute(`
+  const newSiteResult = await pool.query(`
     SELECT s.*,
            u.username as created_by_username,
            0 as estimate_count,
@@ -129,8 +132,9 @@ const createSite = asyncHandler(async (req, res) => {
            0 as total_purchased_amount
     FROM sites s
     LEFT JOIN users u ON s.created_by = u.user_id
-    WHERE s.site_id = ?
-  `, [result.insertId]);
+    WHERE s.site_id = $1
+  `, [result.rows[0].site_id]);
+  const newSite = newSiteResult.rows;
 
   res.status(201).json({
     success: true,
@@ -147,31 +151,31 @@ const updateSite = asyncHandler(async (req, res) => {
   const params = [];
 
   if (name !== undefined) {
-    updates.push('name = ?');
+    updates.push(`name = $${params.length + 1}`);
     params.push(name.trim());
   }
   if (location !== undefined) {
-    updates.push('location = ?');
+    updates.push(`location = $${params.length + 1}`);
     params.push(location && location.trim() ? location.trim() : null);
   }
   if (start_date !== undefined) {
-    updates.push('start_date = ?');
+    updates.push(`start_date = $${params.length + 1}`);
     params.push(start_date || null);
   }
   if (end_date !== undefined) {
-    updates.push('end_date = ?');
+    updates.push(`end_date = $${params.length + 1}`);
     params.push(end_date || null);
   }
   if (status !== undefined) {
-    updates.push('status = ?');
+    updates.push(`status = $${params.length + 1}`);
     params.push(status);
   }
   if (budget_limit !== undefined) {
-    updates.push('budget_limit = ?');
+    updates.push(`budget_limit = $${params.length + 1}`);
     params.push(budget_limit || null);
   }
   if (notes !== undefined) {
-    updates.push('notes = ?');
+    updates.push(`notes = $${params.length + 1}`);
     params.push(notes && notes.trim() ? notes.trim() : null);
   }
 
@@ -185,8 +189,8 @@ const updateSite = asyncHandler(async (req, res) => {
   updates.push('updated_at = CURRENT_TIMESTAMP');
   params.push(id);
 
-  const [result] = await pool.execute(
-    `UPDATE sites SET ${updates.join(', ')} WHERE site_id = ?`,
+  const result = await pool.query(
+    `UPDATE sites SET ${updates.join(', ')} WHERE site_id = $${params.length}`,
     params
   );
 
@@ -197,7 +201,7 @@ const updateSite = asyncHandler(async (req, res) => {
     });
   }
 
-  const [updatedSite] = await pool.execute(`
+  const updatedSiteResult = await pool.query(`
     SELECT s.*,
            u.username as created_by_username,
            (SELECT COUNT(*) FROM estimates e WHERE e.site_id = s.site_id) as estimate_count,
@@ -209,8 +213,9 @@ const updateSite = asyncHandler(async (req, res) => {
             WHERE e.site_id = s.site_id) as total_purchased_amount
     FROM sites s
     LEFT JOIN users u ON s.created_by = u.user_id
-    WHERE s.site_id = ?
+    WHERE s.site_id = $1
   `, [id]);
+  const updatedSite = updatedSiteResult.rows;
 
   res.json({
     success: true,
@@ -222,10 +227,11 @@ const updateSite = asyncHandler(async (req, res) => {
 const deleteSite = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const [estimateCount] = await pool.execute(
-    'SELECT COUNT(*) as count FROM estimates WHERE site_id = ?',
+  const estimateCountResult = await pool.query(
+    'SELECT COUNT(*) as count FROM estimates WHERE site_id = $1',
     [id]
   );
+  const estimateCount = estimateCountResult.rows;
 
   if (estimateCount[0].count > 0) {
     return res.status(400).json({
@@ -234,8 +240,8 @@ const deleteSite = asyncHandler(async (req, res) => {
     });
   }
 
-  const [result] = await pool.execute(
-    'DELETE FROM sites WHERE site_id = ?',
+  const result = await pool.query(
+    'DELETE FROM sites WHERE site_id = $1',
     [id]
   );
 
@@ -253,7 +259,7 @@ const deleteSite = asyncHandler(async (req, res) => {
 });
 
 const getSiteStatistics = asyncHandler(async (req, res) => {
-  const [stats] = await pool.execute(`
+  const statsResult = await pool.query(`
     SELECT
       COUNT(*) as total_sites,
       SUM(CASE WHEN status = 'planning' THEN 1 ELSE 0 END) as planning_sites,
@@ -264,13 +270,15 @@ const getSiteStatistics = asyncHandler(async (req, res) => {
       AVG(budget_limit) as average_budget
     FROM sites
   `);
+  const stats = statsResult.rows;
 
-  const [recentSites] = await pool.execute(`
+  const recentSitesResult = await pool.query(`
     SELECT site_id, name, status, created_at
     FROM sites
     ORDER BY created_at DESC
     LIMIT 5
   `);
+  const recentSites = recentSitesResult.rows;
 
   res.json({
     success: true,
