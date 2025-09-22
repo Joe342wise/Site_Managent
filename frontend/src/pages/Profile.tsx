@@ -177,6 +177,7 @@ const ProfilePage: React.FC = () => {
                 accept="image/*"
                 onChange={handleImageUpload}
                 className="hidden"
+                aria-label="Upload profile picture"
               />
             </div>
             <div className="flex-1">
