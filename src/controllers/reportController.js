@@ -45,7 +45,7 @@ const generateEstimateReport = asyncHandler(async (req, res) => {
             console.error('Error deleting temp file:', error);
           }
         }
-      }, 5000);
+      }, 300000);
     } else {
       res.json({
         success: true,
@@ -106,7 +106,7 @@ const generateVarianceReport = asyncHandler(async (req, res) => {
             console.error('Error deleting temp file:', error);
           }
         }
-      }, 5000);
+      }, 300000);
     } else {
       res.json({
         success: true,
@@ -167,7 +167,7 @@ const generateSiteReport = asyncHandler(async (req, res) => {
             console.error('Error deleting temp file:', error);
           }
         }
-      }, 5000);
+      }, 300000);
     } else {
       res.json({
         success: true,
@@ -216,7 +216,7 @@ const downloadReport = asyncHandler(async (req, res) => {
           console.error('Error deleting temp file:', error);
         }
       }
-    }, 5000);
+    }, 300000);
   } catch (error) {
     res.status(404).json({
       success: false,
