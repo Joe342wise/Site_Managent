@@ -103,7 +103,8 @@ class PDFReportService {
         END as variance_percentage,
         CASE
           WHEN COALESCE(SUM(a.total_actual), 0) = 0 THEN 'No Purchases'
-          WHEN ABS(((COALESCE(SUM(a.total_actual), 0) - ei.total_estimated) / NULLIF(ei.total_estimated, 0)) * 100) < 1 THEN 'On Budget'
+          WHEN ei.total_estimated = 0 THEN 'No Budget'
+          WHEN ABS(((COALESCE(SUM(a.total_actual), 0) - ei.total_estimated) / ei.total_estimated) * 100) < 1 THEN 'On Budget'
           WHEN (COALESCE(SUM(a.total_actual), 0) - ei.total_estimated) > 0 THEN 'Over Budget'
           ELSE 'Under Budget'
         END as variance_status
@@ -113,7 +114,11 @@ class PDFReportService {
       LEFT JOIN actuals a ON ei.item_id = a.item_id
       WHERE e.site_id = ?
       GROUP BY e.estimate_id, ei.item_id, e.title, ei.description, c.name, ei.total_estimated, ei.quantity, ei.unit_price, ei.unit, c.sort_order
-      ORDER BY ABS(variance_percentage) DESC, c.sort_order
+      ORDER BY ABS(COALESCE(
+        CASE
+          WHEN COALESCE(SUM(a.total_actual), 0) = 0 OR ei.total_estimated = 0 THEN 0
+          ELSE ((COALESCE(SUM(a.total_actual), 0) - ei.total_estimated) / ei.total_estimated) * 100
+        END, 0)) DESC, c.sort_order
     `, [siteId]);
 
     this._addHeader(doc);
@@ -396,13 +401,13 @@ class PDFReportService {
     doc.fontSize(10)
        .fillColor('#000000')
        .text('Item', 55, headerY + 5)
-       .text('Category', 140, headerY + 5)
-       .text('Batches', 190, headerY + 5)
-       .text('Estimated', 230, headerY + 5)
-       .text('Actual', 290, headerY + 5)
-       .text('Variance', 350, headerY + 5)
-       .text('Variance %', 410, headerY + 5)
-       .text('Status', 470, headerY + 5);
+       .text('Category', 130, headerY + 5)
+       .text('Batches', 185, headerY + 5)
+       .text(`Estimated (${this.currency})`, 220, headerY + 5)
+       .text(`Actual (${this.currency})`, 290, headerY + 5)
+       .text(`Variance (${this.currency})`, 350, headerY + 5)
+       .text('Variance %', 415, headerY + 5)
+       .text('Status', 465, headerY + 5);
 
     let currentY = headerY + itemHeight;
 
@@ -417,16 +422,16 @@ class PDFReportService {
 
       doc.fontSize(9)
          .fillColor('#000000')
-         .text(this._truncateText(item.item_description, 18), 55, currentY + 5)
-         .text(this._truncateText(item.category_name, 10), 140, currentY + 5)
-         .text(item.purchase_count || '0', 190, currentY + 5)
-         .text(`${this.currency}${this._formatNumber(item.total_estimated)}`, 230, currentY + 5)
-         .text(`${this.currency}${this._formatNumber(item.total_actual)}`, 290, currentY + 5)
-         .text(`${this.currency}${this._formatNumber(item.variance_amount)}`, 350, currentY + 5)
-         .text(`${this._formatNumber(item.variance_percentage, 1)}%`, 410, currentY + 5);
+         .text(this._truncateText(item.item_description, 16), 55, currentY + 5)
+         .text(this._truncateText(item.category_name, 8), 130, currentY + 5)
+         .text(item.purchase_count || '0', 185, currentY + 5)
+         .text(this._formatNumber(item.total_estimated), 220, currentY + 5)
+         .text(this._formatNumber(item.total_actual), 290, currentY + 5)
+         .text(this._formatNumber(item.variance_amount), 350, currentY + 5)
+         .text(`${this._formatNumber(item.variance_percentage, 1)}%`, 415, currentY + 5);
 
       doc.fillColor(statusColor)
-         .text(this._truncateText(item.variance_status, 12), 470, currentY + 5);
+         .text(this._truncateText(item.variance_status, 12), 465, currentY + 5);
 
       currentY += itemHeight;
     });
