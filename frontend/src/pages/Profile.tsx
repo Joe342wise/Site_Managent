@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { User, Mail, Shield, Calendar, Save, Camera, Eye, EyeOff, Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getStatusColor } from '../utils';
@@ -10,7 +10,7 @@ const ProfilePage: React.FC = () => {
   const { user, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(user?.profile_image || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -31,13 +31,30 @@ const ProfilePage: React.FC = () => {
     confirm: false,
   });
 
+  // Update profile image when user data changes
+  useEffect(() => {
+    console.log('User profile_image changed:', user?.profile_image);
+    setProfileImage(user?.profile_image || null);
+  }, [user?.profile_image]);
+
+  // Initialize form data when user changes
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        username: user.username || '',
+        email: user.email || '',
+        full_name: user.full_name || '',
+      });
+    }
+  }, [user]);
+
   // Profile update mutation
   const updateProfileMutation = useMutation(
     (data: any) => apiService.updateProfile(data),
     {
-      onSuccess: () => {
+      onSuccess: (updatedUser) => {
         toast.success('Profile updated successfully!');
-        updateUser(formData);
+        updateUser(updatedUser);
         setIsEditing(false);
       },
       onError: (error: any) => {
@@ -72,7 +89,7 @@ const ProfilePage: React.FC = () => {
         profile_image: profileImage,
       };
       await updateProfileMutation.mutateAsync(updateData);
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };
@@ -83,7 +100,7 @@ const ProfilePage: React.FC = () => {
       email: user?.email || '',
       full_name: user?.full_name || '',
     });
-    setProfileImage(null);
+    setProfileImage(user?.profile_image || null);
     setIsEditing(false);
   };
 
@@ -114,7 +131,7 @@ const ProfilePage: React.FC = () => {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };

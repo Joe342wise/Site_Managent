@@ -8,7 +8,7 @@ const login = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
 
   const [users] = await pool.execute(
-    'SELECT user_id, username, password, email, full_name, role, is_active FROM users WHERE username = ? AND is_active = TRUE',
+    'SELECT user_id, username, password, email, full_name, role, is_active, profile_image FROM users WHERE username = ? AND is_active = TRUE',
     [username]
   );
 
@@ -51,7 +51,7 @@ const getProfile = asyncHandler(async (req, res) => {
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
-  const { username, email, full_name } = req.body;
+  const { username, email, full_name, profile_image } = req.body;
   const userId = req.user.user_id;
 
   // Check if username is already taken by another user
@@ -70,8 +70,8 @@ const updateProfile = asyncHandler(async (req, res) => {
   }
 
   const [result] = await pool.execute(
-    'UPDATE users SET username = COALESCE(?, username), email = ?, full_name = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
-    [username, email, full_name, userId]
+    'UPDATE users SET username = COALESCE(?, username), email = ?, full_name = ?, profile_image = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+    [username, email, full_name, profile_image, userId]
   );
 
   if (result.affectedRows === 0) {
@@ -82,7 +82,7 @@ const updateProfile = asyncHandler(async (req, res) => {
   }
 
   const [users] = await pool.execute(
-    'SELECT user_id, username, email, full_name, role, is_active FROM users WHERE user_id = ?',
+    'SELECT user_id, username, email, full_name, role, is_active, profile_image FROM users WHERE user_id = ?',
     [userId]
   );
 
