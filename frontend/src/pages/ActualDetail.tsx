@@ -9,7 +9,6 @@ import {
   Package,
   Plus,
   X,
-  Calendar,
   TrendingUp,
   TrendingDown,
   CheckCircle,
@@ -287,7 +286,7 @@ const ActualDetailPage: React.FC = () => {
       // Refetch data to update purchase history
       queryClient.invalidateQueries(['existing-actuals']);
       toast.success(`Saved ${itemsToSave.length} purchase${itemsToSave.length > 1 ? 's' : ''}`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to save some purchases');
     } finally {
       setIsSaving(false);
@@ -476,11 +475,11 @@ const ActualDetailPage: React.FC = () => {
 
       {/* Items List with Purchase History */}
       <div className="space-y-6">
-        {items.map((item: EstimateItem) => {
+                {items.map((item: EstimateItem) => {
           const itemState = itemStates[item.item_id];
           const varianceAnalysis = getItemVarianceAnalysis(item, itemState?.purchaseHistory || []);
 
-          return (
+                  return (
             <div key={item.item_id} className="bg-white shadow rounded-lg">
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -559,8 +558,8 @@ const ActualDetailPage: React.FC = () => {
                             </span>
                           </div>
                         </div>
-                      </div>
-                    )}
+                            </div>
+                          )}
 
                     {/* Expanded History */}
                     {itemState?.showHistory && (
@@ -609,9 +608,9 @@ const ActualDetailPage: React.FC = () => {
                           </div>
                         );
                         })}
-                      </div>
-                    )}
-                  </div>
+                            </div>
+                          )}
+                        </div>
                 )}
 
                 {/* Add New Purchase Form */}
@@ -622,14 +621,16 @@ const ActualDetailPage: React.FC = () => {
                       <button
                         onClick={() => toggleAddingNew(item.item_id)}
                         className="text-gray-400 hover:text-gray-600"
+                        aria-label="Cancel adding new purchase"
                       >
                         <X className="h-5 w-5" />
                       </button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                        <label htmlFor={`date-${item.item_id}`} className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                         <input
+                          id={`date-${item.item_id}`}
                           type="date"
                           value={itemState.currentEntry.date_recorded}
                           onChange={(e) => handleCurrentEntryChange(item.item_id, 'date_recorded', e.target.value)}
@@ -637,8 +638,9 @@ const ActualDetailPage: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                        <label htmlFor={`quantity-${item.item_id}`} className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
                         <input
+                          id={`quantity-${item.item_id}`}
                           type="number"
                           value={itemState.currentEntry.actual_quantity || ''}
                           onChange={(e) => handleCurrentEntryChange(item.item_id, 'actual_quantity', parseFloat(e.target.value) || 0)}
@@ -647,8 +649,9 @@ const ActualDetailPage: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price</label>
+                        <label htmlFor={`unit-price-${item.item_id}`} className="block text-sm font-medium text-gray-700 mb-1">Unit Price</label>
                         <input
+                          id={`unit-price-${item.item_id}`}
                           type="number"
                           step="0.01"
                           value={itemState.currentEntry.actual_unit_price || ''}
@@ -658,24 +661,25 @@ const ActualDetailPage: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Supplier (Optional)</label>
+                        <label htmlFor={`supplier-${item.item_id}`} className="block text-sm font-medium text-gray-700 mb-1">Supplier (Optional)</label>
                         <input
+                          id={`supplier-${item.item_id}`}
                           type="text"
                           value={itemState.currentEntry.supplier || ''}
                           onChange={(e) => handleCurrentEntryChange(item.item_id, 'supplier', e.target.value)}
                           placeholder="Supplier name"
                           className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         />
-                      </div>
+                          </div>
                       <div className="flex items-end">
-                        <button
+                          <button
                           onClick={() => handleSavePurchase(item.item_id)}
                           disabled={!itemState.currentEntry.actual_quantity || !itemState.currentEntry.actual_unit_price}
                           className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Save className="h-4 w-4 mr-2" />
                           Save Purchase
-                        </button>
+                          </button>
                       </div>
                     </div>
                     <div className="mt-2 text-sm text-gray-600">
@@ -720,8 +724,8 @@ const ActualDetailPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          );
-        })}
+                  );
+                })}
       </div>
     </div>
   );

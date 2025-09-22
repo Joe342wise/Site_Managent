@@ -9,7 +9,6 @@ import {
   Package,
   Plus,
   X,
-  Calendar,
   TrendingUp,
   TrendingDown,
   CheckCircle
@@ -196,7 +195,7 @@ const ActualDetailEnhanced: React.FC = () => {
         actual_unit_price: currentEntry.actual_unit_price,
         actual_quantity: currentEntry.actual_quantity,
         date_recorded: currentEntry.date_recorded,
-        supplier: currentEntry.supplier || undefined
+        notes: currentEntry.supplier || undefined
       });
 
       // Reset current entry and hide the add form
@@ -241,7 +240,7 @@ const ActualDetailEnhanced: React.FC = () => {
           actual_unit_price: itemState.currentEntry.actual_unit_price,
           actual_quantity: itemState.currentEntry.actual_quantity,
           date_recorded: itemState.currentEntry.date_recorded,
-          supplier: itemState.currentEntry.supplier || undefined
+          notes: itemState.currentEntry.supplier || undefined
         });
       }
 
@@ -266,7 +265,7 @@ const ActualDetailEnhanced: React.FC = () => {
       // Refetch data to update purchase history
       queryClient.invalidateQueries(['existing-actuals']);
       toast.success(`Saved ${itemsToSave.length} purchase${itemsToSave.length > 1 ? 's' : ''}`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to save some purchases');
     } finally {
       setIsSaving(false);
@@ -501,8 +500,8 @@ const ActualDetailEnhanced: React.FC = () => {
                               <div>
                                 <p className="text-xs text-gray-500">Batch #{batchVariance.batchIndex}</p>
                                 <p className="text-sm font-medium">{formatDate(purchase.date_recorded)}</p>
-                                {purchase.supplier && (
-                                  <p className="text-xs text-gray-500">{purchase.supplier}</p>
+                                {purchase.notes && (
+                                  <p className="text-xs text-gray-500">Supplier: {purchase.notes}</p>
                                 )}
                               </div>
                               <div>
@@ -547,16 +546,19 @@ const ActualDetailEnhanced: React.FC = () => {
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-md font-medium text-gray-900">Add New Purchase</h4>
                       <button
+                        type="button"
                         onClick={() => toggleAddingNew(item.item_id)}
                         className="text-gray-400 hover:text-gray-600"
+                        aria-label="Cancel adding new purchase"
                       >
                         <X className="h-5 w-5" />
                       </button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                        <label htmlFor={`date-${item.item_id}`} className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                         <input
+                          id={`date-${item.item_id}`}
                           type="date"
                           value={itemState.currentEntry.date_recorded}
                           onChange={(e) => handleCurrentEntryChange(item.item_id, 'date_recorded', e.target.value)}
@@ -564,8 +566,9 @@ const ActualDetailEnhanced: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                        <label htmlFor={`quantity-${item.item_id}`} className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
                         <input
+                          id={`quantity-${item.item_id}`}
                           type="number"
                           value={itemState.currentEntry.actual_quantity || ''}
                           onChange={(e) => handleCurrentEntryChange(item.item_id, 'actual_quantity', parseFloat(e.target.value) || 0)}
@@ -574,8 +577,9 @@ const ActualDetailEnhanced: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price</label>
+                        <label htmlFor={`unit-price-${item.item_id}`} className="block text-sm font-medium text-gray-700 mb-1">Unit Price</label>
                         <input
+                          id={`unit-price-${item.item_id}`}
                           type="number"
                           step="0.01"
                           value={itemState.currentEntry.actual_unit_price || ''}
@@ -585,8 +589,9 @@ const ActualDetailEnhanced: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Supplier (Optional)</label>
+                        <label htmlFor={`supplier-${item.item_id}`} className="block text-sm font-medium text-gray-700 mb-1">Supplier (Optional)</label>
                         <input
+                          id={`supplier-${item.item_id}`}
                           type="text"
                           value={itemState.currentEntry.supplier || ''}
                           onChange={(e) => handleCurrentEntryChange(item.item_id, 'supplier', e.target.value)}
