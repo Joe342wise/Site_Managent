@@ -5,8 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const LoginPage: React.FC = () => {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
@@ -56,7 +56,7 @@ const LoginPage: React.FC = () => {
                 autoComplete="username"
                 required
                 className="relative block w-full rounded-t-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 px-3"
-                placeholder="Username"
+                placeholder="Enter your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
@@ -72,7 +72,7 @@ const LoginPage: React.FC = () => {
                 autoComplete="current-password"
                 required
                 className="relative block w-full rounded-b-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 px-3 pr-10"
-                placeholder="Password"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -87,14 +87,6 @@ const LoginPage: React.FC = () => {
                   <Eye className="h-5 w-5 text-gray-400" />
                 )}
               </button>
-            </div>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-            <div className="text-sm text-blue-800">
-              <p className="font-medium">Demo Credentials:</p>
-              <p>Username: <code className="bg-blue-100 px-1 rounded">admin</code></p>
-              <p>Password: <code className="bg-blue-100 px-1 rounded">admin123</code></p>
             </div>
           </div>
 
