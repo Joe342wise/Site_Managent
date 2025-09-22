@@ -83,6 +83,14 @@ class ApiService {
     await this.api.post('/auth/change-password', data);
   }
 
+  async forgotPassword(email: string): Promise<void> {
+    await this.api.post('/auth/forgot-password', { email });
+  }
+
+  async resetPassword(data: { email: string; verificationCode: string; newPassword: string }): Promise<void> {
+    await this.api.post('/auth/reset-password', data);
+  }
+
   // Users
   async getUsers(params?: { page?: number; limit?: number; role?: string; search?: string }): Promise<PaginationResponse<User>['data']> {
     const response: AxiosResponse<PaginationResponse<User>> = await this.api.get('/users', { params });

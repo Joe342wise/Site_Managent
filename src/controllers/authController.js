@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { pool } = require('../config/database');
 const { generateTokens } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
+const emailService = require('../services/emailService');
 
 const login = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
@@ -50,12 +51,27 @@ const getProfile = asyncHandler(async (req, res) => {
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
-  const { email, full_name } = req.body;
+  const { username, email, full_name } = req.body;
   const userId = req.user.user_id;
 
+  // Check if username is already taken by another user
+  if (username) {
+    const [existingUsers] = await pool.execute(
+      'SELECT user_id FROM users WHERE username = ? AND user_id != ?',
+      [username, userId]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username is already taken'
+      });
+    }
+  }
+
   const [result] = await pool.execute(
-    'UPDATE users SET email = ?, full_name = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
-    [email, full_name, userId]
+    'UPDATE users SET username = COALESCE(?, username), email = ?, full_name = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+    [username, email, full_name, userId]
   );
 
   if (result.affectedRows === 0) {
@@ -109,15 +125,148 @@ const changePassword = asyncHandler(async (req, res) => {
     [hashedNewPassword, userId]
   );
 
+  // Send confirmation email (don't block the response)
+  setImmediate(async () => {
+    try {
+      await emailService.sendPasswordChangeConfirmation(req.user.email, req.user.username);
+    } catch (error) {
+      console.error('Failed to send password change confirmation email:', error);
+    }
+  });
+
   res.json({
     success: true,
     message: 'Password changed successfully'
   });
 });
 
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  // Check if user exists
+  const [users] = await pool.execute(
+    'SELECT user_id, username, email FROM users WHERE email = ? AND is_active = TRUE',
+    [email]
+  );
+
+  if (users.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'No account found with this email address'
+    });
+  }
+
+  const user = users[0];
+
+  // Generate 6-digit verification code
+  const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  // Store verification code
+  await pool.execute(
+    'INSERT INTO verification_codes (email, code, type, expires_at) VALUES (?, ?, ?, ?)',
+    [email, verificationCode, 'password_reset', expiresAt]
+  );
+
+  // Send verification email
+  try {
+    await emailService.sendPasswordChangeVerification(email, verificationCode);
+
+    res.json({
+      success: true,
+      message: 'Password reset code sent to your email'
+    });
+  } catch (error) {
+    console.error('Failed to send verification email:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send verification email. Please try again.'
+    });
+  }
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const { email, verificationCode, newPassword } = req.body;
+
+  // Verify the code
+  const [codes] = await pool.execute(
+    'SELECT id FROM verification_codes WHERE email = ? AND code = ? AND type = ? AND expires_at > NOW() AND used = FALSE',
+    [email, verificationCode, 'password_reset']
+  );
+
+  if (codes.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired verification code'
+    });
+  }
+
+  const codeId = codes[0].id;
+
+  // Check if user still exists
+  const [users] = await pool.execute(
+    'SELECT user_id, username FROM users WHERE email = ? AND is_active = TRUE',
+    [email]
+  );
+
+  if (users.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'User account not found'
+    });
+  }
+
+  const user = users[0];
+
+  // Hash new password
+  const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+  // Start transaction
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Update password
+    await connection.execute(
+      'UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+      [hashedNewPassword, user.user_id]
+    );
+
+    // Mark verification code as used
+    await connection.execute(
+      'UPDATE verification_codes SET used = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [codeId]
+    );
+
+    await connection.commit();
+
+    // Send confirmation email (don't block the response)
+    setImmediate(async () => {
+      try {
+        await emailService.sendPasswordChangeConfirmation(email, user.username);
+      } catch (error) {
+        console.error('Failed to send password reset confirmation email:', error);
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+});
+
 module.exports = {
   login,
   getProfile,
   updateProfile,
-  changePassword
+  changePassword,
+  forgotPassword,
+  resetPassword
 };

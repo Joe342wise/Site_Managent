@@ -111,9 +111,8 @@ const ProfilePage: React.FC = () => {
 
     try {
       await changePasswordMutation.mutateAsync({
-        email: user?.email,
-        current_password: passwordData.currentPassword,
-        new_password: passwordData.newPassword,
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
       });
     } catch (error) {
       // Error handled by mutation
