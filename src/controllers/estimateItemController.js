@@ -21,7 +21,27 @@ const getEstimateItems = asyncHandler(async (req, res) => {
     SELECT ei.*,
            c.name as category_name,
            (SELECT COUNT(*) FROM actuals a WHERE a.item_id = ei.item_id) as has_actuals,
-           (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) as total_actual_cost
+           (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) as total_actual_cost,
+           (SELECT SUM(actual_quantity) FROM actuals a WHERE a.item_id = ei.item_id) as total_actual_quantity,
+           (SELECT COUNT(actual_id) FROM actuals a WHERE a.item_id = ei.item_id) as purchase_count,
+           -- Cumulative variance calculation
+           CASE
+             WHEN (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) IS NULL THEN 0
+             ELSE (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) -
+                  (ei.unit_price * COALESCE((SELECT SUM(actual_quantity) FROM actuals a WHERE a.item_id = ei.item_id), 0))
+           END as cumulative_variance_amount,
+           -- Cumulative variance percentage
+           CASE
+             WHEN (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) IS NULL THEN 0
+             WHEN (SELECT SUM(actual_quantity) FROM actuals a WHERE a.item_id = ei.item_id) IS NULL OR ei.unit_price = 0 THEN 0
+             ELSE (
+               ((SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) /
+                COALESCE((SELECT SUM(actual_quantity) FROM actuals a WHERE a.item_id = ei.item_id), 0)) - ei.unit_price
+             ) / ei.unit_price * 100
+           END as cumulative_variance_percentage,
+           -- Remaining budget info
+           (ei.quantity - COALESCE((SELECT SUM(actual_quantity) FROM actuals a WHERE a.item_id = ei.item_id), 0)) as remaining_quantity,
+           (ei.total_estimated - COALESCE((SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id), 0)) as remaining_budget
     FROM estimate_items ei
     LEFT JOIN categories c ON ei.category_id = c.category_id
     WHERE ei.estimate_id = $1
@@ -34,7 +54,7 @@ const getEstimateItems = asyncHandler(async (req, res) => {
     params.push(category_id);
   }
 
-  query += ' ORDER BY c.sort_order, ei.item_id';
+  query += ' ORDER BY ei.item_id ASC';
 
   const itemsResult = await pool.query(query, params);
   const items = itemsResult.rows;
@@ -68,7 +88,30 @@ const getEstimateItemById = asyncHandler(async (req, res) => {
     SELECT ei.*,
            c.name as category_name,
            e.title as estimate_title,
-           s.name as site_name
+           s.name as site_name,
+           -- Add cumulative variance data for individual item view
+           (SELECT COUNT(*) FROM actuals a WHERE a.item_id = ei.item_id) as has_actuals,
+           (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) as total_actual_cost,
+           (SELECT SUM(actual_quantity) FROM actuals a WHERE a.item_id = ei.item_id) as total_actual_quantity,
+           (SELECT COUNT(actual_id) FROM actuals a WHERE a.item_id = ei.item_id) as purchase_count,
+           -- Cumulative variance calculation
+           CASE
+             WHEN (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) IS NULL THEN 0
+             ELSE (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) -
+                  (ei.unit_price * COALESCE((SELECT SUM(actual_quantity) FROM actuals a WHERE a.item_id = ei.item_id), 0))
+           END as cumulative_variance_amount,
+           -- Cumulative variance percentage
+           CASE
+             WHEN (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) IS NULL THEN 0
+             WHEN (SELECT SUM(actual_quantity) FROM actuals a WHERE a.item_id = ei.item_id) IS NULL OR ei.unit_price = 0 THEN 0
+             ELSE (
+               ((SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) /
+                COALESCE((SELECT SUM(actual_quantity) FROM actuals a WHERE a.item_id = ei.item_id), 0)) - ei.unit_price
+             ) / ei.unit_price * 100
+           END as cumulative_variance_percentage,
+           -- Remaining budget info
+           (ei.quantity - COALESCE((SELECT SUM(actual_quantity) FROM actuals a WHERE a.item_id = ei.item_id), 0)) as remaining_quantity,
+           (ei.total_estimated - COALESCE((SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id), 0)) as remaining_budget
     FROM estimate_items ei
     LEFT JOIN categories c ON ei.category_id = c.category_id
     LEFT JOIN estimates e ON ei.estimate_id = e.estimate_id
@@ -86,11 +129,12 @@ const getEstimateItemById = asyncHandler(async (req, res) => {
 
   const actualsResult = await pool.query(`
     SELECT a.*,
-           u.username as recorded_by_username
+           u.username as recorded_by_username,
+           ROW_NUMBER() OVER (ORDER BY a.date_recorded ASC, a.actual_id ASC) as batch_number
     FROM actuals a
     LEFT JOIN users u ON a.recorded_by = u.user_id
     WHERE a.item_id = $1
-    ORDER BY a.date_recorded DESC
+    ORDER BY a.date_recorded ASC, a.actual_id ASC
   `, [id]);
   const actuals = actualsResult.rows;
 

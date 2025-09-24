@@ -3,6 +3,7 @@ const nodemailer = require('nodemailer');
 class EmailService {
   constructor() {
     this.transporter = nodemailer.createTransport({
+      service: 'gmail',
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: process.env.SMTP_PORT || 587,
       secure: false, // true for 465, false for other ports
@@ -12,7 +13,14 @@ class EmailService {
       },
       tls: {
         rejectUnauthorized: false
-      }
+      },
+      pool: true, // use pooled connection
+      maxConnections: 5,
+      maxMessages: 100,
+      rateLimit: 14, // 14 messages per second max
+      connectionTimeout: 60000, // 60 seconds
+      greetingTimeout: 30000, // 30 seconds
+      socketTimeout: 60000 // 60 seconds
     });
   }
 
@@ -55,14 +63,34 @@ class EmailService {
       `
     };
 
-    try {
-      const info = await this.transporter.sendMail(mailOptions);
-      console.log('Password verification email sent:', info.messageId);
-      return { success: true, messageId: info.messageId };
-    } catch (error) {
-      console.error('Error sending password verification email:', error);
-      throw new Error('Failed to send verification email');
+    // Retry logic for better reliability
+    const maxRetries = 3;
+    let lastError;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Attempting to send email (attempt ${attempt}/${maxRetries}) to:`, userEmail);
+
+        // Verify connection before sending
+        await this.transporter.verify();
+
+        const info = await this.transporter.sendMail(mailOptions);
+        console.log('Password verification email sent successfully:', info.messageId);
+        return { success: true, messageId: info.messageId };
+
+      } catch (error) {
+        lastError = error;
+        console.error(`Email send attempt ${attempt} failed:`, error.message);
+
+        if (attempt < maxRetries) {
+          console.log(`Retrying in ${attempt * 2} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+        }
+      }
     }
+
+    console.error('All email send attempts failed. Last error:', lastError);
+    throw new Error(`Failed to send verification email after ${maxRetries} attempts: ${lastError.message}`);
   }
 
   async sendPasswordChangeConfirmation(userEmail, username) {

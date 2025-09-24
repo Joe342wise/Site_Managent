@@ -178,12 +178,33 @@ const createActual = asyncHandler(async (req, res) => {
     });
   }
 
+  // Get the estimated values for variance calculation
+  const estimateItemResult = await pool.query(
+    'SELECT quantity, unit_price, total_estimated FROM estimate_items WHERE item_id = $1',
+    [item_id]
+  );
+  const estimateItem = estimateItemResult.rows[0];
+
+  // Calculate actual values and variance
+  const actualQuantity = actual_quantity || estimateItem.quantity;
+  const totalActual = actualQuantity * actual_unit_price;
+
+  // CORRECT variance calculation - based on unit price difference
+  const unitPriceVariance = actual_unit_price - estimateItem.unit_price;
+  const varianceAmount = unitPriceVariance * actualQuantity;
+  const variancePercentage = estimateItem.unit_price > 0
+    ? (unitPriceVariance / estimateItem.unit_price) * 100
+    : 0;
+
   const result = await pool.query(
-    'INSERT INTO actuals (item_id, actual_unit_price, actual_quantity, date_recorded, notes, recorded_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING actual_id',
+    'INSERT INTO actuals (item_id, actual_unit_price, actual_quantity, total_actual, variance_amount, variance_percentage, date_recorded, notes, recorded_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING actual_id',
     [
       parseInt(item_id),
       parseFloat(actual_unit_price),
       actual_quantity ? parseFloat(actual_quantity) : null,
+      totalActual,
+      varianceAmount,
+      variancePercentage,
       date_recorded,
       notes && notes.trim() ? notes.trim() : null,
       recorded_by
@@ -222,16 +243,59 @@ const updateActual = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { actual_unit_price, actual_quantity, date_recorded, notes } = req.body;
 
+  // Get current actual record and estimate item info for calculations
+  const currentRecordResult = await pool.query(`
+    SELECT a.*, ei.quantity as estimated_quantity, ei.unit_price as estimated_unit_price
+    FROM actuals a
+    JOIN estimate_items ei ON a.item_id = ei.item_id
+    WHERE a.actual_id = $1
+  `, [id]);
+
+  if (currentRecordResult.rows.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'Actual cost record not found'
+    });
+  }
+
+  const currentRecord = currentRecordResult.rows[0];
+
+  // Determine new values (use provided values or keep current ones)
+  const newUnitPrice = actual_unit_price !== undefined ? parseFloat(actual_unit_price) : currentRecord.actual_unit_price;
+  const newQuantity = actual_quantity !== undefined ? (actual_quantity ? parseFloat(actual_quantity) : null) : currentRecord.actual_quantity;
+  const actualQuantityForCalc = newQuantity || currentRecord.estimated_quantity;
+
+  // Recalculate variance if price or quantity changed
+  const needsVarianceRecalc = actual_unit_price !== undefined || actual_quantity !== undefined;
+  let totalActual, varianceAmount, variancePercentage;
+
+  if (needsVarianceRecalc) {
+    totalActual = actualQuantityForCalc * newUnitPrice;
+    const unitPriceVariance = newUnitPrice - currentRecord.estimated_unit_price;
+    varianceAmount = unitPriceVariance * actualQuantityForCalc;
+    variancePercentage = currentRecord.estimated_unit_price > 0
+      ? (unitPriceVariance / currentRecord.estimated_unit_price) * 100
+      : 0;
+  }
+
   const updates = [];
   const params = [];
 
   if (actual_unit_price !== undefined) {
     updates.push(`actual_unit_price = $${params.length + 1}`);
-    params.push(actual_unit_price);
+    params.push(newUnitPrice);
   }
   if (actual_quantity !== undefined) {
     updates.push(`actual_quantity = $${params.length + 1}`);
-    params.push(actual_quantity);
+    params.push(newQuantity);
+  }
+  if (needsVarianceRecalc) {
+    updates.push(`total_actual = $${params.length + 1}`);
+    params.push(totalActual);
+    updates.push(`variance_amount = $${params.length + 1}`);
+    params.push(varianceAmount);
+    updates.push(`variance_percentage = $${params.length + 1}`);
+    params.push(variancePercentage);
   }
   if (date_recorded !== undefined) {
     updates.push(`date_recorded = $${params.length + 1}`);
@@ -257,7 +321,7 @@ const updateActual = asyncHandler(async (req, res) => {
     params
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'Actual cost record not found'
@@ -330,7 +394,7 @@ const getActualsByEstimate = asyncHandler(async (req, res) => {
     JOIN categories c ON ei.category_id = c.category_id
     LEFT JOIN users u ON a.recorded_by = u.user_id
     WHERE ei.estimate_id = $1
-    ORDER BY c.sort_order, ei.item_id, a.date_recorded DESC
+    ORDER BY ei.item_id ASC, a.date_recorded ASC
   `, [estimate_id]);
   const actuals = actualsResult.rows;
 
@@ -362,11 +426,12 @@ const getActualsByItem = asyncHandler(async (req, res) => {
 
   const actualsResult = await pool.query(`
     SELECT a.*,
-           u.username as recorded_by_username
+           u.username as recorded_by_username,
+           ROW_NUMBER() OVER (ORDER BY a.date_recorded ASC, a.actual_id ASC) as batch_number
     FROM actuals a
     LEFT JOIN users u ON a.recorded_by = u.user_id
     WHERE a.item_id = $1
-    ORDER BY a.date_recorded DESC
+    ORDER BY a.date_recorded ASC, a.actual_id ASC
   `, [item_id]);
   const actuals = actualsResult.rows;
 

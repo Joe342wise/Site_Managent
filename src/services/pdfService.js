@@ -18,7 +18,7 @@ class PDFReportService {
       doc.pipe(fs.createWriteStream(outputPath));
     }
 
-    const [estimateData] = await pool.execute(`
+    const estimateResult = await pool.query(`
       SELECT e.*,
              s.name as site_name,
              s.location as site_location,
@@ -27,23 +27,25 @@ class PDFReportService {
       FROM estimates e
       LEFT JOIN sites s ON e.site_id = s.site_id
       LEFT JOIN users u ON e.created_by = u.user_id
-      WHERE e.estimate_id = ?
+      WHERE e.estimate_id = $1
     `, [estimateId]);
 
-    if (estimateData.length === 0) {
+    if (estimateResult.rows.length === 0) {
       throw new Error('Estimate not found');
     }
 
-    const estimate = estimateData[0];
+    const estimate = estimateResult.rows[0];
 
-    const [items] = await pool.execute(`
+    const itemsResult = await pool.query(`
       SELECT ei.*,
              c.name as category_name
       FROM estimate_items ei
       LEFT JOIN categories c ON ei.category_id = c.category_id
-      WHERE ei.estimate_id = ?
-      ORDER BY c.sort_order, ei.item_id
+      WHERE ei.estimate_id = $1
+      ORDER BY ei.item_id ASC
     `, [estimateId]);
+
+    const items = itemsResult.rows;
 
     this._addHeader(doc);
     this._addEstimateInfo(doc, estimate);
@@ -62,21 +64,21 @@ class PDFReportService {
       doc.pipe(fs.createWriteStream(outputPath));
     }
 
-    const [siteData] = await pool.execute(`
+    const siteResult = await pool.query(`
       SELECT s.*, COUNT(DISTINCT e.estimate_id) as estimate_count
       FROM sites s
       LEFT JOIN estimates e ON s.site_id = e.site_id
-      WHERE s.site_id = ?
-      GROUP BY s.site_id
+      WHERE s.site_id = $1
+      GROUP BY s.site_id, s.name, s.location, s.start_date, s.end_date, s.status, s.budget_limit, s.notes, s.created_by, s.created_at, s.updated_at
     `, [siteId]);
 
-    if (siteData.length === 0) {
+    if (siteResult.rows.length === 0) {
       throw new Error('Site not found');
     }
 
-    const site = siteData[0];
+    const site = siteResult.rows[0];
 
-    const [varianceData] = await pool.execute(`
+    const varianceResult = await pool.query(`
       SELECT
         e.title as estimate_title,
         ei.description as item_description,
@@ -112,7 +114,7 @@ class PDFReportService {
       JOIN estimate_items ei ON e.estimate_id = ei.estimate_id
       JOIN categories c ON ei.category_id = c.category_id
       LEFT JOIN actuals a ON ei.item_id = a.item_id
-      WHERE e.site_id = ?
+      WHERE e.site_id = $1
       GROUP BY e.estimate_id, ei.item_id, e.title, ei.description, c.name, ei.total_estimated, ei.quantity, ei.unit_price, ei.unit, c.sort_order
       ORDER BY ABS(COALESCE(
         CASE
@@ -120,6 +122,8 @@ class PDFReportService {
           ELSE ((COALESCE(SUM(a.total_actual), 0) - ei.total_estimated) / ei.total_estimated) * 100
         END, 0)) DESC, c.sort_order
     `, [siteId]);
+
+    const varianceData = varianceResult.rows;
 
     this._addHeader(doc);
     this._addVarianceInfo(doc, site);
@@ -138,7 +142,7 @@ class PDFReportService {
       doc.pipe(fs.createWriteStream(outputPath));
     }
 
-    const [siteData] = await pool.execute(`
+    const siteResult = await pool.query(`
       SELECT s.*,
              u.username as created_by_username,
              COUNT(DISTINCT e.estimate_id) as estimate_count,
@@ -146,17 +150,17 @@ class PDFReportService {
       FROM sites s
       LEFT JOIN users u ON s.created_by = u.user_id
       LEFT JOIN estimates e ON s.site_id = e.site_id
-      WHERE s.site_id = ?
-      GROUP BY s.site_id
+      WHERE s.site_id = $1
+      GROUP BY s.site_id, s.name, s.location, s.start_date, s.end_date, s.status, s.budget_limit, s.notes, s.created_by, s.created_at, s.updated_at, u.username
     `, [siteId]);
 
-    if (siteData.length === 0) {
+    if (siteResult.rows.length === 0) {
       throw new Error('Site not found');
     }
 
-    const site = siteData[0];
+    const site = siteResult.rows[0];
 
-    const [estimates] = await pool.execute(`
+    const estimatesResult = await pool.query(`
       SELECT e.*,
              COUNT(DISTINCT ei.item_id) as item_count,
              SUM(ei.total_estimated) as calculated_total,
@@ -165,10 +169,12 @@ class PDFReportService {
       FROM estimates e
       LEFT JOIN estimate_items ei ON e.estimate_id = ei.estimate_id
       LEFT JOIN actuals a ON ei.item_id = a.item_id
-      WHERE e.site_id = ?
-      GROUP BY e.estimate_id
+      WHERE e.site_id = $1
+      GROUP BY e.estimate_id, e.site_id, e.title, e.description, e.date_created, e.version, e.status, e.total_estimated, e.notes, e.created_by, e.created_at, e.updated_at
       ORDER BY e.date_created DESC
     `, [siteId]);
+
+    const estimates = estimatesResult.rows;
 
     this._addHeader(doc);
     this._addSiteInfo(doc, site);

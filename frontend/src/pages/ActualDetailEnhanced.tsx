@@ -306,7 +306,7 @@ const ActualDetailEnhanced: React.FC = () => {
       const variancePercentage = estimatedUnitPrice > 0 ? ((actualUnitPrice - estimatedUnitPrice) / estimatedUnitPrice) * 100 : 0;
 
       return {
-        batchIndex: index + 1,
+        batchIndex: index + 1, // Use array index as batch number
         estimatedUnitPrice,
         actualUnitPrice,
         quantity,

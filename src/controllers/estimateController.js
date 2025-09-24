@@ -105,7 +105,7 @@ const getEstimateById = asyncHandler(async (req, res) => {
     FROM estimate_items ei
     LEFT JOIN categories c ON ei.category_id = c.category_id
     WHERE ei.estimate_id = $1
-    ORDER BY c.sort_order, ei.item_id
+    ORDER BY ei.item_id ASC
   `, [id]);
   const items = itemsResult.rows;
 

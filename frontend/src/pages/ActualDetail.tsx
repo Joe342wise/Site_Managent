@@ -327,7 +327,7 @@ const ActualDetailPage: React.FC = () => {
       const variancePercentage = estimatedUnitPrice > 0 ? ((actualUnitPrice - estimatedUnitPrice) / estimatedUnitPrice) * 100 : 0;
 
       return {
-        batchIndex: index + 1,
+        batchIndex: index + 1, // Use array index as batch number
         estimatedUnitPrice,
         actualUnitPrice,
         quantity,
@@ -474,18 +474,82 @@ const ActualDetailPage: React.FC = () => {
       </div>
 
       {/* Items List with Purchase History */}
-      <div className="space-y-6">
+      <div className="space-y-8">
                 {items.map((item: EstimateItem) => {
           const itemState = itemStates[item.item_id];
           const varianceAnalysis = getItemVarianceAnalysis(item, itemState?.purchaseHistory || []);
 
                   return (
-            <div key={item.item_id} className="bg-white shadow rounded-lg">
+            <div key={item.item_id} className={`bg-white shadow-md rounded-lg border-l-4 hover:shadow-lg transition-shadow ${
+              item.category_name === 'Material' ? 'border-l-blue-500' :
+              item.category_name === 'Labor' ? 'border-l-green-500' :
+              item.category_name === 'Masonry' ? 'border-l-orange-500' :
+              item.category_name === 'Steel Works' ? 'border-l-gray-500' :
+              item.category_name === 'Roofing' ? 'border-l-red-500' :
+              item.category_name === 'Plumbing' ? 'border-l-indigo-500' :
+              item.category_name === 'Electrical' ? 'border-l-yellow-500' :
+              item.category_name === 'Flooring' ? 'border-l-purple-500' :
+              item.category_name === 'Painting' ? 'border-l-pink-500' :
+              item.category_name === 'Landscaping' ? 'border-l-emerald-500' :
+              item.category_name === 'HVAC' ? 'border-l-cyan-500' :
+              item.category_name === 'Miscellaneous' ? 'border-l-slate-500' :
+              'border-l-gray-400'
+            }`}>
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">{item.description}</h3>
-                    <p className="text-sm text-gray-500">{item.category_name}</p>
+                  <div className="flex items-center space-x-3">
+                    {/* Category Icon Badge */}
+                    <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
+                      item.category_name === 'Material' ? 'bg-blue-500' :
+                      item.category_name === 'Labor' ? 'bg-green-500' :
+                      item.category_name === 'Masonry' ? 'bg-orange-500' :
+                      item.category_name === 'Steel Works' ? 'bg-gray-500' :
+                      item.category_name === 'Roofing' ? 'bg-red-500' :
+                      item.category_name === 'Plumbing' ? 'bg-indigo-500' :
+                      item.category_name === 'Electrical' ? 'bg-yellow-500' :
+                      item.category_name === 'Flooring' ? 'bg-purple-500' :
+                      item.category_name === 'Painting' ? 'bg-pink-500' :
+                      item.category_name === 'Landscaping' ? 'bg-emerald-500' :
+                      item.category_name === 'HVAC' ? 'bg-cyan-500' :
+                      item.category_name === 'Miscellaneous' ? 'bg-slate-500' :
+                      'bg-gray-400'
+                    }`}>
+                      {item.category_name?.charAt(0) || 'I'}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{item.description}</h3>
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          item.category_name === 'Material' ? 'bg-blue-100 text-blue-800' :
+                          item.category_name === 'Labor' ? 'bg-green-100 text-green-800' :
+                          item.category_name === 'Masonry' ? 'bg-orange-100 text-orange-800' :
+                          item.category_name === 'Steel Works' ? 'bg-gray-100 text-gray-800' :
+                          item.category_name === 'Roofing' ? 'bg-red-100 text-red-800' :
+                          item.category_name === 'Plumbing' ? 'bg-indigo-100 text-indigo-800' :
+                          item.category_name === 'Electrical' ? 'bg-yellow-100 text-yellow-800' :
+                          item.category_name === 'Flooring' ? 'bg-purple-100 text-purple-800' :
+                          item.category_name === 'Painting' ? 'bg-pink-100 text-pink-800' :
+                          item.category_name === 'Landscaping' ? 'bg-emerald-100 text-emerald-800' :
+                          item.category_name === 'HVAC' ? 'bg-cyan-100 text-cyan-800' :
+                          item.category_name === 'Miscellaneous' ? 'bg-slate-100 text-slate-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {item.category_name}
+                        </span>
+                        {/* Purchase Status Badge */}
+                        {varianceAnalysis.batchVariances.length > 0 ? (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            {varianceAnalysis.batchVariances.length} Purchase{varianceAnalysis.batchVariances.length > 1 ? 's' : ''}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                            <Package className="w-3 h-3 mr-1" />
+                            Not Purchased
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div className="flex items-center space-x-4">
                     <div className="text-right">

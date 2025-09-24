@@ -26,9 +26,9 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
     estimate_id: estimateId,
     description: '',
     category_id: 0,
-    quantity: 1,
+    quantity: undefined as any,
     unit: '',
-    unit_price: 0,
+    unit_price: undefined as any,
     notes: '',
   });
 
@@ -61,9 +61,9 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
         estimate_id: estimateId,
         description: '',
         category_id: 0,
-        quantity: 1,
+        quantity: undefined as any,
         unit: '',
-        unit_price: 0,
+        unit_price: undefined as any,
         notes: '',
       });
     }
@@ -89,7 +89,7 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
       newErrors.quantity = 'Quantity must be greater than 0';
     }
 
-    if (formData.unit_price <= 0) {
+    if (!formData.unit_price || formData.unit_price <= 0) {
       newErrors.unit_price = 'Unit price must be greater than 0';
     }
 
@@ -121,8 +121,45 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
     }
   };
 
+  const getUnitsForCategory = (categoryId: number): string[] => {
+    if (!categoryId || categoryId === 0) {
+      return ['pcs', 'kg', 'm²', 'm³', 'm', 'hrs', 'days', 'bags', 'tons', 'loads', 'trips'];
+    }
+
+    // Find the selected category by ID
+    const selectedCategory = categories?.find(cat => cat.category_id === categoryId);
+
+    if (!selectedCategory) {
+      return ['pcs', 'kg', 'm²', 'm³', 'm', 'hrs'];
+    }
+
+    // Map units based on category name instead of hardcoded IDs
+    const categoryUnits: Record<string, string[]> = {
+      // New construction-specific categories
+      'Material': ['pcs', 'kg', 'tons', 'm³', 'm²', 'm', 'bags', 'sacks', 'loads'],
+      'Labor': ['hrs', 'days', 'weeks', 'months', 'pcs'],
+      'Masonry': ['m³', 'm²', 'm', 'pcs', 'bags', 'tons', 'kg'],
+      'Steel Works': ['kg', 'tons', 'pcs', 'm', 'mm'],
+      'Plumbing': ['pcs', 'm', 'sets', 'nos', 'lengths'],
+      'Carpentry': ['m²', 'm³', 'm', 'pcs', 'sets', 'sqft'],
+      'Electrical Works': ['pcs', 'm', 'nos', 'sets', 'points'],
+      'Air Conditioning Works': ['pcs', 'sets', 'nos', 'units'],
+      'Utilities': ['pcs', 'm', 'connections', 'nos'],
+      'Glass Glazing': ['m²', 'pcs', 'sqft', 'panels'],
+      'Metal Works': ['kg', 'pcs', 'm', 'sets', 'nos'],
+      'POP/Aesthetics Works': ['m²', 'm', 'pcs', 'sqft', 'sets'],
+      // Old basic categories (for backward compatibility)
+      'Materials': ['pcs', 'kg', 'tons', 'm³', 'm²', 'm', 'bags', 'sacks', 'loads'],
+      'Equipment': ['hrs', 'days', 'weeks', 'months', 'pcs'],
+      'Transportation': ['km', 'trips', 'loads', 'hrs'],
+      'Miscellaneous': ['pcs', 'lots', 'hrs', 'days'],
+    };
+
+    return categoryUnits[selectedCategory.name] || ['pcs', 'kg', 'm²', 'm³', 'm', 'hrs'];
+  };
+
   const calculateTotal = () => {
-    return (formData.quantity || 0) * formData.unit_price;
+    return (formData.quantity || 0) * (formData.unit_price || 0);
   };
 
   if (!isOpen) return null;
@@ -208,11 +245,12 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
                     <input
                       type="number"
                       id="quantity"
-                      value={formData.quantity}
+                      value={formData.quantity || ''}
                       onChange={(e) => handleInputChange('quantity', parseFloat(e.target.value) || 0)}
                       className={`block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
                         errors.quantity ? 'border-red-500' : ''
                       }`}
+                      placeholder="Enter quantity (e.g., 10, 2.5)"
                       min="0"
                       step="0.01"
                       disabled={isLoading}
@@ -224,17 +262,22 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
                     <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
                       Unit *
                     </label>
-                    <input
-                      type="text"
+                    <select
                       id="unit"
                       value={formData.unit}
                       onChange={(e) => handleInputChange('unit', e.target.value)}
                       className={`block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
                         errors.unit ? 'border-red-500' : ''
                       }`}
-                      placeholder="e.g., pcs, kg, m², hrs"
                       disabled={isLoading}
-                    />
+                    >
+                      <option value="">Select unit...</option>
+                      {getUnitsForCategory(formData.category_id).map((unit) => (
+                        <option key={unit} value={unit}>
+                          {unit}
+                        </option>
+                      ))}
+                    </select>
                     {errors.unit && <p className="mt-1 text-sm text-red-600">{errors.unit}</p>}
                   </div>
                 </div>
@@ -248,11 +291,12 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
                   <input
                     type="number"
                     id="unit_price"
-                    value={formData.unit_price}
+                    value={formData.unit_price || ''}
                     onChange={(e) => handleInputChange('unit_price', parseFloat(e.target.value) || 0)}
                     className={`block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
                       errors.unit_price ? 'border-red-500' : ''
                     }`}
+                    placeholder="Enter unit price (e.g., 25.50)"
                     min="0"
                     step="0.01"
                     disabled={isLoading}

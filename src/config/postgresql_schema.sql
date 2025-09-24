@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS categories (
     category_id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
+    sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -93,27 +94,25 @@ CREATE INDEX IF NOT EXISTS idx_estimate_items_category_id ON estimate_items(cate
 -- Actual expenses table
 CREATE TABLE IF NOT EXISTS actuals (
     actual_id SERIAL PRIMARY KEY,
-    estimate_id INTEGER NOT NULL REFERENCES estimates(estimate_id) ON DELETE CASCADE,
-    item_id INTEGER REFERENCES estimate_items(item_id) ON DELETE SET NULL,
-    description VARCHAR(255) NOT NULL,
-    quantity DECIMAL(10,2) NOT NULL,
-    unit VARCHAR(20) DEFAULT 'pcs',
-    unit_price DECIMAL(10,2) NOT NULL,
-    total_actual DECIMAL(15,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
-    purchase_date DATE NOT NULL,
-    vendor VARCHAR(100),
-    receipt_number VARCHAR(50),
+    item_id INTEGER NOT NULL,
+    actual_unit_price DECIMAL(12,2) NOT NULL,
+    actual_quantity DECIMAL(10,3),
+    total_actual DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    variance_amount DECIMAL(15,2),
+    variance_percentage DECIMAL(5,2),
+    date_recorded DATE NOT NULL,
     notes TEXT,
-    created_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+    recorded_by INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (item_id) REFERENCES estimate_items(item_id) ON DELETE CASCADE,
+    FOREIGN KEY (recorded_by) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
 -- Create indexes on actuals
-CREATE INDEX IF NOT EXISTS idx_actuals_estimate_id ON actuals(estimate_id);
 CREATE INDEX IF NOT EXISTS idx_actuals_item_id ON actuals(item_id);
-CREATE INDEX IF NOT EXISTS idx_actuals_purchase_date ON actuals(purchase_date);
-CREATE INDEX IF NOT EXISTS idx_actuals_created_by ON actuals(created_by);
+CREATE INDEX IF NOT EXISTS idx_actuals_date_recorded ON actuals(date_recorded);
+CREATE INDEX IF NOT EXISTS idx_actuals_recorded_by ON actuals(recorded_by);
 
 -- Verification codes table for email verification
 CREATE TABLE IF NOT EXISTS verification_codes (
@@ -131,13 +130,20 @@ CREATE INDEX IF NOT EXISTS idx_verification_codes_email ON verification_codes(em
 CREATE INDEX IF NOT EXISTS idx_verification_codes_code ON verification_codes(code);
 CREATE INDEX IF NOT EXISTS idx_verification_codes_expires_at ON verification_codes(expires_at);
 
--- Insert default categories
-INSERT INTO categories (name, description) VALUES
-    ('Materials', 'Construction materials and supplies'),
-    ('Labor', 'Labor costs and wages'),
-    ('Equipment', 'Equipment rental and purchase'),
-    ('Transportation', 'Transportation and logistics'),
-    ('Miscellaneous', 'Other expenses')
+-- Insert default categories based on the original MySQL schema
+INSERT INTO categories (name, description, sort_order) VALUES
+    ('Material', 'Basic construction materials', 1),
+    ('Labor', 'Worker payments and contractor fees', 2),
+    ('Masonry', 'Brick work, concrete, foundations', 3),
+    ('Steel Works', 'Reinforcement, structural steel', 4),
+    ('Plumbing', 'Pipes, fixtures, installation', 5),
+    ('Carpentry', 'Wood work, formwork, finishing', 6),
+    ('Electrical Works', 'Wiring, fixtures, installations', 7),
+    ('Air Conditioning Works', 'HVAC systems', 8),
+    ('Utilities', 'Water, electricity connections', 9),
+    ('Glass Glazing', 'Windows, glass installations', 10),
+    ('Metal Works', 'Gates, railings, metal fixtures', 11),
+    ('POP/Aesthetics Works', 'Finishing, decorative elements', 12)
 ON CONFLICT (name) DO NOTHING;
 
 -- Insert default admin user (password: admin123)

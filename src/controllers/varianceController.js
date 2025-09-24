@@ -121,7 +121,7 @@ const getVarianceBySite = asyncHandler(async (req, res) => {
     LEFT JOIN estimate_items ei ON e.estimate_id = ei.estimate_id
     LEFT JOIN actuals a ON ei.item_id = a.item_id
     GROUP BY s.site_id, s.name, s.status
-    HAVING total_items > 0
+    HAVING COUNT(DISTINCT ei.item_id) > 0
     ORDER BY ABS(variance_percentage) DESC
   `);
   const siteVariances = siteVariancesResult.rows;
@@ -181,7 +181,7 @@ const getVarianceByCategory = asyncHandler(async (req, res) => {
 
   query += `
     GROUP BY c.category_id, c.name
-    HAVING total_items > 0
+    HAVING COUNT(ei.item_id) > 0
     ORDER BY ABS(variance_percentage) DESC
   `;
 
@@ -356,8 +356,8 @@ const getVarianceAlerts = asyncHandler(async (req, res) => {
     JOIN actuals a ON ei.item_id = a.item_id
     WHERE s.budget_limit IS NOT NULL
     GROUP BY s.site_id, s.name, s.budget_limit
-    HAVING total_spent > s.budget_limit
-    ORDER BY over_budget_percentage DESC
+    HAVING SUM(a.actual_unit_price * COALESCE(a.actual_quantity, ei.quantity)) > s.budget_limit
+    ORDER BY ((SUM(a.actual_unit_price * COALESCE(a.actual_quantity, ei.quantity)) - s.budget_limit) / s.budget_limit) * 100 DESC
   `);
   const budgetAlerts = budgetAlertsResult.rows;
 
