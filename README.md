@@ -1,6 +1,21 @@
-# Construction Site Manager API
+# Construction Site Management System
 
-A comprehensive Node.js API for managing construction projects, estimates, and cost tracking. Built specifically for **De'Aion Contractors**, this system provides complete financial control and project management capabilities.
+A comprehensive full-stack application for managing construction projects, estimates, and cost tracking. Built specifically for **De'Aion Contractors**, this system provides complete financial control and project management capabilities with advanced variance analysis and budget alerts.
+
+## System Architecture
+
+### Backend (Node.js + PostgreSQL)
+- **Database**: PostgreSQL 12+ with comprehensive schema
+- **API**: RESTful Node.js API with Express.js
+- **Authentication**: JWT-based with role-based access control
+- **Email Service**: Nodemailer with Gmail SMTP integration
+
+### Frontend (React + TypeScript)
+- **Framework**: React 18 with TypeScript
+- **Styling**: Tailwind CSS with responsive design
+- **State Management**: React Query for server state
+- **Routing**: React Router DOM
+- **Icons**: Lucide React icons
 
 ## Features
 
@@ -8,21 +23,23 @@ A comprehensive Node.js API for managing construction projects, estimates, and c
 - **Site Management**: Complete CRUD operations for construction sites
 - **Estimate Management**: Detailed project estimates with 12 specialized categories
 - **Cost Tracking**: Record actual costs vs estimates with real-time variance analysis
-- **User Management**: Secure authentication and role-based access control
+- **User Management**: Secure authentication with profile management and forgot password
 - **PDF Reports**: Professional branded reports for estimates, variance analysis, and site summaries
 - **Variance Analysis**: Advanced calculations and alerts for budget monitoring
+- **Dashboard**: Real-time overview with budget alerts and recent variances
 
 ### Business Value
 - **Financial Control**: Prevent cross-contract spending and maintain budget boundaries
-- **Cost Optimization**: Track actual vs estimated costs for better future planning
+- **Cost Optimization**: Track actual vs estimated costs with batch-level tracking
 - **Professional Reporting**: Branded PDF reports for client presentations
 - **Data-Driven Decisions**: Historical data improves estimate accuracy
+- **Real-time Monitoring**: Instant alerts when budgets exceed thresholds
 
 ## Quick Start
 
 ### Prerequisites
 - Node.js 18+
-- MySQL 8.0+
+- PostgreSQL 12+
 - pnpm (recommended) or npm
 
 ### Installation
@@ -31,93 +48,156 @@ A comprehensive Node.js API for managing construction projects, estimates, and c
    ```bash
    git clone <repository-url>
    cd Site_Managent
-   pnpm install
+
+   # Install backend dependencies
+   npm install
+
+   # Install frontend dependencies
+   cd frontend
+   npm install
+   cd ..
    ```
 
 2. **Database Setup**
    ```bash
-   # Create MySQL database
-   mysql -u root -p
+   # Create PostgreSQL database
+   psql -U postgres
    CREATE DATABASE construction_manager;
-   exit
+   CREATE USER construction_manager WITH ENCRYPTED PASSWORD '0987654321';
+   GRANT ALL PRIVILEGES ON DATABASE construction_manager TO construction_manager;
+   \q
    ```
 
 3. **Environment Configuration**
    ```bash
+   # Backend configuration
    cp .env.example .env
    # Edit .env with your database credentials
    ```
 
-4. **Start the Server**
+   Example `.env`:
    ```bash
-   # Development
-   pnpm run dev
+   # Database Configuration (PostgreSQL)
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_USER=construction_manager
+   DB_PASSWORD=0987654321
+   DB_NAME=construction_manager
 
-   # Production
-   pnpm start
+   # JWT Configuration
+   JWT_SECRET=construction_manager_super_secret_jwt_key_2024
+   JWT_EXPIRES_IN=24h
+
+   # Server Configuration
+   PORT=3000
+   NODE_ENV=development
+
+   # Email Configuration (Gmail)
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=your_email@gmail.com
+   SMTP_PASS=your_app_password
+   SMTP_FROM=your_email@gmail.com
+
+   # Company Information
+   COMPANY_NAME=De'Aion Contractors
+   COMPANY_PHONE1=0242838007
+   COMPANY_PHONE2=0208936345
+   COMPANY_CURRENCY=GHS
+   ```
+
+4. **Start the Application**
+   ```bash
+   # Development - Backend (runs on port 3000)
+   npm run dev
+
+   # In a new terminal - Frontend (runs on port 3001)
+   cd frontend
+   npm start
    ```
 
 5. **Verify Installation**
-   - API: http://localhost:3000
+   - **Frontend**: http://localhost:3001
+   - **Backend API**: http://localhost:3000
    - **Scalar Docs**: http://localhost:3000/api/docs/scalar (Modern, Interactive)
    - **Swagger UI**: http://localhost:3000/api/docs/swagger-ui (Traditional)
-   - Health: http://localhost:3000/api/health
+   - **Health Check**: http://localhost:3000/api/health
 
-### Database Migration (If Needed)
-
-If you encounter issues with generated columns in MySQL, the application automatically detects and fixes this issue. The system will:
-
-1. **Detect existing databases** and run migration scripts automatically
-2. **Fix generated column issues** in the `actuals` table
-3. **Create triggers** to calculate totals and variances properly
-
-Manual migration (if needed):
-```bash
-# Run the migration script directly in MySQL
-mysql -u root -p construction_manager < src/config/migration_fix_actuals.sql
-
-# If trigger creation fails, create them manually
-mysql -u root -p construction_manager < src/config/fixed_triggers.sql
+### Default Login
+```
+Username: admin
+Password: admin123
 ```
 
-### Troubleshooting Trigger Issues
+## System Components
 
-If you encounter MySQL syntax errors with triggers (Error Code: 1064), see the detailed guide:
-- **[SETUP_TRIGGERS.md](SETUP_TRIGGERS.md)** - Complete manual trigger setup guide
+### Database Schema (PostgreSQL)
 
-Common solutions:
-1. **Automatic**: The application tries to create triggers automatically
-2. **Semi-automatic**: Use the fixed SQL file: `mysql -u root -p construction_manager < src/config/fixed_triggers.sql`
-3. **Manual**: Follow the step-by-step guide in `SETUP_TRIGGERS.md`
+#### Core Tables
+- **users**: User authentication and roles with profile images
+- **sites**: Construction project sites with budget limits
+- **estimates**: Project estimates with status tracking
+- **categories**: 12 specialized construction categories
+- **estimate_items**: Detailed estimate line items
+- **actuals**: Recorded actual costs with variance calculations
+- **verification_codes**: Password reset verification system
+
+#### Construction Categories (12 Types)
+1. **Material** - Basic construction materials
+2. **Labor** - Worker payments and contractor fees
+3. **Masonry** - Brick work, concrete, foundations
+4. **Steel Works** - Reinforcement, structural steel
+5. **Roofing** - Roofing materials and installation
+6. **Plumbing** - Water systems and fixtures
+7. **Electrical** - Wiring, fixtures, electrical systems
+8. **Flooring** - Flooring materials and installation
+9. **Painting** - Paint and painting services
+10. **Landscaping** - Outdoor and landscaping work
+11. **HVAC** - Heating, ventilation, air conditioning
+12. **Miscellaneous** - Other construction items
+
+### Frontend Architecture
+
+#### Key Components
+- **Dashboard**: Overview with stats, alerts, and quick actions
+- **Sites Management**: CRUD operations for construction sites
+- **Estimates**: Create and manage project estimates with items
+- **Actuals Entry**: Record purchase costs with batch tracking
+- **Variance Analysis**: Detailed variance reports and analysis
+- **User Profile**: Profile management with image upload
+- **Authentication**: Login, forgot password, profile management
+
+#### UI Enhancements
+- **Category-coded Items**: Color-coded badges and borders for easy identification
+- **Status Indicators**: Visual badges for purchase status and variance direction
+- **Enhanced Forms**: Smart placeholders and category-based unit dropdowns
+- **Responsive Design**: Mobile-friendly interface with Tailwind CSS
+
+### Variance Calculation System
+
+#### Formula
+```
+Variance Amount = (Actual Unit Price × Actual Quantity) - Estimated Total
+Variance Percentage = (Variance Amount / Estimated Total) × 100
+```
+
+#### Batch Tracking
+- **Chronological Ordering**: Purchases ordered by date and time
+- **Batch Numbering**: Sequential batch numbers (Batch #1, #2, etc.)
+- **Cumulative Analysis**: Running totals and variance calculations
+- **Individual Tracking**: Each purchase tracked separately
+
+#### Budget Alerts
+- **Threshold**: 10% variance triggers alerts (configurable)
+- **Real-time Monitoring**: Dashboard refreshes every 5-7 minutes
+- **Alert Types**:
+  - High variance items (>10% deviation)
+  - Budget exceeded alerts (when site budget limit exceeded)
 
 ## API Documentation
 
-The API includes comprehensive interactive documentation with two interfaces:
-
-### 📖 **Scalar Documentation** (Recommended)
-- **URL**: http://localhost:3000/api/docs/scalar
-- **Features**: Modern, beautiful interface with interactive examples
-- **Highlights**:
-  - Real-time API testing
-  - Code examples in multiple languages
-  - Dark/light theme support
-  - Advanced filtering and search
-
-### 📋 **Swagger UI Documentation**
-- **URL**: http://localhost:3000/api/docs/swagger-ui
-- **Features**: Traditional Swagger interface
-- **Highlights**:
-  - Try-it-out functionality
-  - Schema visualization
-  - Authentication support
-  - Export capabilities
-
-### 📄 **OpenAPI JSON Specification**
-- **URL**: http://localhost:3000/api/docs/json
-- **Use**: Import into Postman, Insomnia, or other API tools
-
 ### Authentication
-All endpoints require JWT authentication except `/auth/login`.
+All endpoints require JWT authentication except `/auth/login` and `/auth/forgot-password`.
 
 ```bash
 # Login
@@ -127,28 +207,41 @@ POST /api/auth/login
   "password": "admin123"
 }
 
-# Use the returned token in headers
-Authorization: Bearer <your-jwt-token>
+# Forgot Password
+POST /api/auth/forgot-password
+{
+  "email": "admin@deaioncontractors.com"
+}
+
+# Reset Password
+POST /api/auth/reset-password
+{
+  "email": "admin@deaioncontractors.com",
+  "verificationCode": "123456",
+  "newPassword": "newPassword123"
+}
 ```
 
 ### Core Endpoints
 
 #### Sites Management
 ```bash
-GET    /api/sites                 # List all sites
+GET    /api/sites                 # List all sites with pagination
 POST   /api/sites                 # Create new site
 GET    /api/sites/:id             # Get site details
 PUT    /api/sites/:id             # Update site
 DELETE /api/sites/:id             # Delete site
+GET    /api/sites/statistics      # Site statistics
 ```
 
 #### Estimates Management
 ```bash
-GET    /api/estimates             # List all estimates
+GET    /api/estimates             # List all estimates with filtering
 POST   /api/estimates             # Create new estimate
 GET    /api/estimates/:id         # Get estimate details
 PUT    /api/estimates/:id         # Update estimate
 POST   /api/estimates/:id/duplicate # Duplicate estimate
+GET    /api/estimates/statistics  # Estimate statistics
 ```
 
 #### Estimate Items
@@ -157,14 +250,17 @@ GET    /api/estimate-items/categories           # Get all categories
 GET    /api/estimate-items/estimate/:id         # Get items for estimate
 POST   /api/estimate-items                      # Add new item
 PUT    /api/estimate-items/:id                  # Update item
+DELETE /api/estimate-items/:id                  # Delete item
 ```
 
 #### Actual Costs
 ```bash
-GET    /api/actuals               # List all actuals
+GET    /api/actuals               # List all actuals with filtering
 POST   /api/actuals               # Record actual cost
 GET    /api/actuals/estimate/:id  # Get actuals for estimate
 PUT    /api/actuals/:id           # Update actual cost
+DELETE /api/actuals/:id           # Delete actual cost
+GET    /api/actuals/statistics    # Actuals statistics
 ```
 
 #### Variance Analysis
@@ -174,6 +270,7 @@ GET    /api/variance/by-site      # Variance grouped by site
 GET    /api/variance/by-category  # Variance grouped by category
 GET    /api/variance/trends       # Variance trends over time
 GET    /api/variance/alerts       # Budget alerts and warnings
+GET    /api/variance/top          # Top variances by impact
 ```
 
 #### PDF Reports
@@ -182,168 +279,125 @@ GET    /api/reports/estimate/:id     # Generate estimate PDF
 GET    /api/reports/variance/:site_id # Generate variance PDF
 GET    /api/reports/site/:site_id     # Generate site summary PDF
 
-# Add ?download=true to download immediately
-# Add ?filename=custom_name.pdf for custom filename
+# Query parameters:
+# ?download=true - Download immediately
+# ?filename=custom_name.pdf - Custom filename
 ```
 
-## Database Schema
+## User Workflow
 
-### Core Tables
-- **users**: User authentication and roles
-- **sites**: Construction project sites
-- **estimates**: Project estimates
-- **categories**: Item categories (Material, Labor, etc.)
-- **estimate_items**: Detailed estimate line items
-- **actuals**: Recorded actual costs with variance calculations
+### 1. Site Setup
+1. Create construction site with budget limit
+2. Set site details (location, dates, contact info)
 
-### Categories (12 Specialized Types)
-1. Material
-2. Labor
-3. Masonry
-4. Steel Works
-5. Plumbing
-6. Carpentry
-7. Electrical Works
-8. Air Conditioning Works
-9. Utilities
-10. Glass Glazing
-11. Metal Works
-12. POP/Aesthetics Works
+### 2. Estimate Creation
+1. Create project estimate for the site
+2. Add estimate items with categories, quantities, and unit prices
+3. System automatically calculates totals
 
-## Environment Variables
+### 3. Cost Recording
+1. Record actual purchases as they occur
+2. Enter actual unit price and quantity (if different)
+3. System calculates variance automatically
+4. Track multiple batches per item chronologically
 
-```bash
-# Database
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=construction_manager
+### 4. Variance Monitoring
+1. View dashboard for real-time alerts
+2. Analyze variance details by site or category
+3. Generate PDF reports for stakeholders
+4. Monitor budget compliance
 
-# JWT
-JWT_SECRET=your_secret_key
-JWT_EXPIRES_IN=24h
+## Email Features
 
-# Server
-PORT=3000
-NODE_ENV=development
+### Forgot Password System
+- **Verification Code**: 6-digit code with 10-minute expiration
+- **Email Templates**: Professional branded emails
+- **Fallback System**: Shows code in response if email fails
+- **Retry Logic**: 3 attempts with exponential backoff
 
-# Company Info
-COMPANY_NAME=De'Aion Contractors
-COMPANY_PHONE1=0242838007
-COMPANY_PHONE2=0208936345
-COMPANY_CURRENCY=GHS
-```
-
-## User Roles & Permissions
-
-- **Admin**: Full system access, user management
-- **Manager**: Site and estimate management, reporting
-- **Supervisor**: Site-specific access, cost recording
-- **Accountant**: Financial reporting and analysis
-
-## Example Usage
-
-### Creating a Complete Estimate
-
-```bash
-# 1. Create a site
-POST /api/sites
-{
-  "name": "Accra Office Building",
-  "location": "Accra, Ghana",
-  "start_date": "2024-01-15",
-  "budget_limit": 500000
-}
-
-# 2. Create an estimate
-POST /api/estimates
-{
-  "site_id": 1,
-  "title": "Phase 1 - Foundation Work",
-  "description": "Initial foundation and structural work"
-}
-
-# 3. Add estimate items
-POST /api/estimate-items
-{
-  "estimate_id": 1,
-  "description": "Concrete for foundation",
-  "category_id": 3,
-  "quantity": 50,
-  "unit": "cubic meters",
-  "unit_price": 300
-}
-
-# 4. Record actual costs
-POST /api/actuals
-{
-  "item_id": 1,
-  "actual_unit_price": 320,
-  "date_recorded": "2024-01-20"
-}
-
-# 5. Generate reports
-GET /api/reports/estimate/1?download=true
-```
+### Configuration
+Requires Gmail app password for SMTP authentication:
+1. Enable 2-factor authentication in Gmail
+2. Generate app-specific password
+3. Use app password in `SMTP_PASS` environment variable
 
 ## Development
 
 ### Available Scripts
 ```bash
-pnpm run dev        # Start development server with nodemon
-pnpm start          # Start production server
-pnpm test           # Run tests
+# Backend
+npm run dev        # Development server with nodemon
+npm start          # Production server
+
+# Frontend
+cd frontend
+npm start          # Development server (Create React App)
+npm run build      # Production build
 ```
 
 ### Project Structure
 ```
-src/
-├── config/         # Database and app configuration
-├── controllers/    # Route handlers
-├── middleware/     # Authentication, validation, error handling
-├── models/         # Database models (if using ORM)
-├── routes/         # API route definitions
-├── services/       # Business logic (PDF generation, etc.)
-└── utils/          # Utility functions
-
-tests/              # Test files
-temp/               # Temporary files (PDF generation)
-```
-
-## Error Handling
-
-The API returns consistent error responses:
-
-```json
-{
-  "success": false,
-  "message": "Error description",
-  "errors": [
-    {
-      "field": "fieldName",
-      "message": "Specific error message"
-    }
-  ]
-}
+Site_Managent/
+├── src/                      # Backend source code
+│   ├── config/              # Database and app configuration
+│   │   ├── database.js      # PostgreSQL connection
+│   │   └── postgresql_schema.sql # Database schema
+│   ├── controllers/         # Route handlers
+│   ├── middleware/          # Authentication, validation, error handling
+│   ├── routes/              # API route definitions
+│   ├── services/            # Business logic (PDF, email)
+│   └── utils/               # Utility functions
+├── frontend/                # React frontend
+│   ├── src/
+│   │   ├── components/      # Reusable components
+│   │   ├── pages/          # Page components
+│   │   ├── services/       # API service layer
+│   │   ├── types/          # TypeScript type definitions
+│   │   └── utils/          # Frontend utilities
+│   └── public/             # Static assets
+├── temp/                   # Temporary files (PDF generation)
+└── docs/                   # Documentation files
 ```
 
 ## Security Features
 
-- JWT-based authentication
-- Rate limiting (100 requests per 15 minutes)
-- Helmet.js security headers
-- Input validation with Joi
-- SQL injection prevention
-- Role-based access control
+- **JWT Authentication**: Secure token-based authentication
+- **Password Hashing**: bcrypt with salt rounds
+- **Rate Limiting**: 100 requests per 15 minutes
+- **Input Validation**: Comprehensive request validation
+- **SQL Injection Prevention**: Parameterized queries
+- **CORS Protection**: Configured for frontend domain
+- **Security Headers**: Helmet.js security middleware
 
 ## Performance Considerations
 
-- Database connection pooling
-- Automatic variance calculations via triggers
-- Generated columns for totals
-- Efficient indexing on frequently queried fields
-- Background PDF cleanup
+- **Database Connection Pooling**: PostgreSQL connection pool
+- **Query Optimization**: Efficient indexing and query structure
+- **Frontend Optimization**: React Query for caching and state management
+- **Background Processing**: Automatic PDF cleanup
+- **Pagination**: Efficient data loading with pagination
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Port Conflicts**:
+   - Backend: Port 3000
+   - Frontend: Port 3001
+
+2. **Database Connection Issues**:
+   - Verify PostgreSQL is running
+   - Check connection credentials in `.env`
+   - Ensure database and user exist
+
+3. **Email Service Issues**:
+   - Verify Gmail app password is correct
+   - Check SMTP configuration
+   - Review server logs for detailed error messages
+
+4. **Build Issues**:
+   - Clear node_modules: `rm -rf node_modules && npm install`
+   - Check Node.js version compatibility
 
 ## Support
 
