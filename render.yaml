@@ -1,7 +1,7 @@
 services:
   - type: web
     name: construction-site-manager-api
-    env: node
+    runtime: node
     plan: free
     buildCommand: npm install
     startCommand: npm start
@@ -11,26 +11,8 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: DB_HOST
-        fromDatabase:
-          name: construction-manager-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: construction-manager-db
-          property: port
-      - key: DB_USER
-        fromDatabase:
-          name: construction-manager-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: construction-manager-db
-          property: password
-      - key: DB_NAME
-        fromDatabase:
-          name: construction-manager-db
-          property: database
+      - key: DATABASE_URL
+        value: "postgresql://postgres:Contrac@De'Aion25@db.ioqcampialcpgxfccbkz.supabase.co:5432/postgres"
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
@@ -43,9 +25,14 @@ services:
         value: "0208936345"
       - key: COMPANY_CURRENCY
         value: "GHS"
-
-databases:
-  - name: construction-manager-db
-    databaseName: construction_manager
-    user: construction_manager
-    plan: free
+      # Email settings
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        value: "jnyarko342@gmail.com"
+      - key: SMTP_PASS
+        value: "yhekrkubcwxzlqsf"
+      - key: SMTP_FROM
+        value: "jnyarko342@gmail.com"
