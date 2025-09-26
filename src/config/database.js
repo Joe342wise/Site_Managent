@@ -8,19 +8,22 @@ const dbConfig = process.env.DATABASE_URL
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       max: 10,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000, // Increased timeout
+      connectionTimeoutMillis: 10000,
       // Force IPv4 for Render/Supabase compatibility
       options: process.env.NODE_ENV === 'production' ? '-c search_path=public' : undefined,
     }
   : {
       host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 5432,
+      port: parseInt(process.env.DB_PORT) || 5432,
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'password',
       database: process.env.DB_NAME || 'construction_manager',
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
+      // Force IPv4 resolution
+      family: 4,
     };
 
 const pool = new Pool(dbConfig);
@@ -57,6 +60,14 @@ const testConnection = async () => {
       port: error.port,
       syscall: error.syscall
     });
+
+    // If IPv6 connection failed, suggest IPv4 alternatives
+    if (error.address && error.address.includes(':')) {
+      console.error('🔧 IPv6 connection detected. Consider using:');
+      console.error('   - Supabase Connection Pooler: aws-0-us-east-1.pooler.supabase.com');
+      console.error('   - User format: postgres.PROJECT_REF');
+    }
+
     return false;
   }
 };

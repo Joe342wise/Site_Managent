@@ -11,13 +11,13 @@ services:
         value: production
       - key: PORT
         value: 10000
-      # Option 1: Use individual env vars (more reliable)
+      # Use Supabase Connection Pooler (more reliable for Render)
       - key: DB_HOST
-        value: "db.ioqcampialcpgxfccbkz.supabase.co"
+        value: "aws-0-us-east-1.pooler.supabase.com"
       - key: DB_PORT
         value: "5432"
       - key: DB_USER
-        value: "postgres"
+        value: "postgres.ioqcampialcpgxfccbkz"
       - key: DB_PASSWORD
         value: "Contrac@De'Aion25"
       - key: DB_NAME
