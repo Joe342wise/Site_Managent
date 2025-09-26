@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: construction-site-manager-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DB_HOST
+        fromDatabase:
+          name: construction-manager-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: construction-manager-db
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: construction-manager-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: construction-manager-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: construction-manager-db
+          property: database
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: COMPANY_NAME
+        value: "De'Aion Contractors"
+      - key: COMPANY_PHONE1
+        value: "0242838007"
+      - key: COMPANY_PHONE2
+        value: "0208936345"
+      - key: COMPANY_CURRENCY
+        value: "GHS"
+
+databases:
+  - name: construction-manager-db
+    databaseName: construction_manager
+    user: construction_manager
+    plan: free
