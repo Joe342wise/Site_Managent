@@ -11,8 +11,20 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: DATABASE_URL
-        value: "postgresql://postgres:Contrac@De'Aion25@db.ioqcampialcpgxfccbkz.supabase.co:5432/postgres"
+      # Option 1: Use individual env vars (more reliable)
+      - key: DB_HOST
+        value: "db.ioqcampialcpgxfccbkz.supabase.co"
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USER
+        value: "postgres"
+      - key: DB_PASSWORD
+        value: "Contrac@De'Aion25"
+      - key: DB_NAME
+        value: "postgres"
+      # Option 2: Connection string (comment out above if using this)
+      # - key: DATABASE_URL
+      #   value: "postgresql://postgres:Contrac@De'Aion25@db.ioqcampialcpgxfccbkz.supabase.co:5432/postgres"
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN

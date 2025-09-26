@@ -149,15 +149,39 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     console.log('🚀 Starting Construction Site Manager API...');
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🗄️  Database: ${process.env.DATABASE_URL ? 'CONNECTION_STRING' : 'ENV_VARS'}`);
 
-    const dbConnected = await testConnection();
+    let dbConnected = false;
+    let retries = 3;
+
+    while (retries > 0 && !dbConnected) {
+      console.log(`🔄 Attempting database connection... (${4 - retries}/3)`);
+      dbConnected = await testConnection();
+
+      if (!dbConnected) {
+        retries--;
+        if (retries > 0) {
+          console.log(`⏳ Retrying in 5 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+    }
+
     if (!dbConnected) {
-      console.error('❌ Failed to connect to database. Exiting...');
+      console.error('❌ Failed to connect to database after 3 attempts.');
+      console.error('🔧 Suggestions:');
+      console.error('  1. Check DATABASE_URL format');
+      console.error('  2. Verify Supabase credentials');
+      console.error('  3. Check network connectivity');
       process.exit(1);
     }
 
+    console.log('✅ Database connected successfully');
+
     try {
       await initializeDatabase();
+      console.log('✅ Database initialized successfully');
     } catch (error) {
       console.error('⚠️  Database initialization warning:', error.message);
     }
