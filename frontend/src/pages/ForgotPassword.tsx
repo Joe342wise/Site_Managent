@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
+  const [, setCodeSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
