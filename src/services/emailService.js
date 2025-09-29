@@ -9,6 +9,7 @@ class EmailService {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: process.env.SMTP_PORT || 587,
       secure: false, // true for 465, false for other ports
+      requireTLS: true,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
@@ -74,7 +75,32 @@ class EmailService {
         console.log(`Attempting to send email (attempt ${attempt}/${maxRetries}) to:`, userEmail);
 
         // Verify connection before sending
-        await this.transporter.verify();
+        try {
+          await this.transporter.verify();
+        } catch (verifyError) {
+          // If connection timed out on STARTTLS: try SMTPS 465 as fallback
+          if (verifyError && (verifyError.code === 'ETIMEDOUT' || verifyError.code === 'ECONNRESET')) {
+            console.warn('STARTTLS on 587 timed out. Retrying with SMTPS 465...');
+            this.transporter = nodemailer.createTransport({
+              service: 'gmail',
+              host: process.env.SMTP_HOST || 'smtp.gmail.com',
+              port: 465,
+              secure: true,
+              auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS
+              },
+              tls: { rejectUnauthorized: false },
+              pool: false,
+              connectionTimeout: 30000,
+              greetingTimeout: 20000,
+              socketTimeout: 30000
+            });
+            await this.transporter.verify();
+          } else {
+            throw verifyError;
+          }
+        }
 
         const info = await this.transporter.sendMail(mailOptions);
         console.log('Password verification email sent successfully:', info.messageId);
