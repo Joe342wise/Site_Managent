@@ -1,4 +1,6 @@
 const nodemailer = require('nodemailer');
+// Prefer IPv4 sockets for SMTP on some hosts
+try { require('dns').setDefaultResultOrder && require('dns').setDefaultResultOrder('ipv4first'); } catch {}
 
 class EmailService {
   constructor() {
@@ -18,9 +20,9 @@ class EmailService {
       maxConnections: 5,
       maxMessages: 100,
       rateLimit: 14, // 14 messages per second max
-      connectionTimeout: 60000, // 60 seconds
-      greetingTimeout: 30000, // 30 seconds
-      socketTimeout: 60000 // 60 seconds
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 20000, // 20 seconds
+      socketTimeout: 30000 // 30 seconds
     });
   }
 

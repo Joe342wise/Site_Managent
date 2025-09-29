@@ -1,4 +1,6 @@
 const express = require('express');
+// Prefer IPv4 DNS resolution for external services (SMTP, etc.)
+try { require('dns').setDefaultResultOrder && require('dns').setDefaultResultOrder('ipv4first'); } catch {}
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -22,6 +24,9 @@ const reportRoutes = require('./src/routes/reports');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Behind Render's proxy; needed for accurate client IPs and rate limiting
+app.set('trust proxy', 1);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
