@@ -1,15 +1,18 @@
 const nodemailer = require('nodemailer');
+const fallbackEmailService = require('./fallbackEmailService');
 // Prefer IPv4 sockets for SMTP on some hosts
 try { require('dns').setDefaultResultOrder && require('dns').setDefaultResultOrder('ipv4first'); } catch {}
 
 class EmailService {
   constructor() {
+    // Render-optimized configuration: start with secure port 465
+    const isProduction = process.env.NODE_ENV === 'production';
+
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: process.env.SMTP_PORT || 587,
-      secure: false, // true for 465, false for other ports
-      requireTLS: true,
+      port: isProduction ? 465 : 587, // Use secure port on Render
+      secure: isProduction, // true for 465, false for 587
+      requireTLS: !isProduction,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
@@ -17,13 +20,12 @@ class EmailService {
       tls: {
         rejectUnauthorized: false
       },
-      pool: true, // use pooled connection
-      maxConnections: 5,
-      maxMessages: 100,
-      rateLimit: 14, // 14 messages per second max
-      connectionTimeout: 30000, // 30 seconds
-      greetingTimeout: 20000, // 20 seconds
-      socketTimeout: 30000 // 30 seconds
+      pool: false, // Disable pooling for better reliability
+      connectionTimeout: isProduction ? 5000 : 15000, // Much shorter timeout on Render
+      greetingTimeout: isProduction ? 3000 : 10000,
+      socketTimeout: isProduction ? 5000 : 15000,
+      logger: false,
+      debug: false
     });
   }
 
@@ -74,31 +76,12 @@ class EmailService {
       try {
         console.log(`Attempting to send email (attempt ${attempt}/${maxRetries}) to:`, userEmail);
 
-        // Verify connection before sending
-        try {
-          await this.transporter.verify();
-        } catch (verifyError) {
-          // If connection timed out on STARTTLS: try SMTPS 465 as fallback
-          if (verifyError && (verifyError.code === 'ETIMEDOUT' || verifyError.code === 'ECONNRESET')) {
-            console.warn('STARTTLS on 587 timed out. Retrying with SMTPS 465...');
-            this.transporter = nodemailer.createTransport({
-              service: 'gmail',
-              host: process.env.SMTP_HOST || 'smtp.gmail.com',
-              port: 465,
-              secure: true,
-              auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS
-              },
-              tls: { rejectUnauthorized: false },
-              pool: false,
-              connectionTimeout: 30000,
-              greetingTimeout: 20000,
-              socketTimeout: 30000
-            });
+        // Skip verification on Render - it often fails even when sending works
+        if (process.env.NODE_ENV !== 'production') {
+          try {
             await this.transporter.verify();
-          } else {
-            throw verifyError;
+          } catch (verifyError) {
+            console.warn('SMTP verification failed, but attempting to send anyway:', verifyError.message);
           }
         }
 
@@ -111,13 +94,27 @@ class EmailService {
         console.error(`Email send attempt ${attempt} failed:`, error.message);
 
         if (attempt < maxRetries) {
-          console.log(`Retrying in ${attempt * 2} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+          const delay = process.env.NODE_ENV === 'production' ? attempt * 1000 : attempt * 2000;
+          console.log(`Retrying in ${delay / 1000} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
 
     console.error('All email send attempts failed. Last error:', lastError);
+
+    // Try fallback email service on Render
+    if (process.env.NODE_ENV === 'production') {
+      console.log('🔄 Attempting fallback email service...');
+      try {
+        const result = await fallbackEmailService.sendPasswordChangeVerification(userEmail, verificationCode);
+        console.log('✅ Fallback email service succeeded:', result.method);
+        return result;
+      } catch (fallbackError) {
+        console.error('❌ Fallback email service also failed:', fallbackError.message);
+      }
+    }
+
     throw new Error(`Failed to send verification email after ${maxRetries} attempts: ${lastError.message}`);
   }
 
