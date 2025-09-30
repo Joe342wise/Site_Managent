@@ -37,7 +37,13 @@ services:
         value: "0208936345"
       - key: COMPANY_CURRENCY
         value: "GHS"
-      # Email settings
+      # Email settings - SendGrid (primary, reliable on Render)
+      - key: SENDGRID_API_KEY
+        value: "YOUR_SENDGRID_API_KEY_HERE"
+      - key: SMTP_FROM
+        value: "noreply@deaioncontractors.com"
+
+      # Email settings - Gmail (fallback)
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT
@@ -46,5 +52,3 @@ services:
         value: "jnyarko342@gmail.com"
       - key: SMTP_PASS
         value: "yhekrkubcwxzlqsf"
-      - key: SMTP_FROM
-        value: "jnyarko342@gmail.com"

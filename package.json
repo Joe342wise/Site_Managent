@@ -21,6 +21,7 @@
   "packageManager": "pnpm@10.12.4",
   "dependencies": {
     "@scalar/express-api-reference": "^0.8.18",
+    "@sendgrid/mail": "^8.1.6",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

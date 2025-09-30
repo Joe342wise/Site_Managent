@@ -3,6 +3,14 @@ const fallbackEmailService = require('./fallbackEmailService');
 // Prefer IPv4 sockets for SMTP on some hosts
 try { require('dns').setDefaultResultOrder && require('dns').setDefaultResultOrder('ipv4first'); } catch {}
 
+// SendGrid integration
+let sendGridService;
+try {
+  sendGridService = require('./sendgridEmailService');
+} catch (error) {
+  console.warn('SendGrid service not available:', error.message);
+}
+
 class EmailService {
   constructor() {
     // Render-optimized configuration: start with secure port 465
@@ -18,18 +26,34 @@ class EmailService {
         pass: process.env.SMTP_PASS
       },
       tls: {
-        rejectUnauthorized: false
+        rejectUnauthorized: false,
+        // Force TLS version for better compatibility on Render
+        minVersion: 'TLSv1.2'
       },
       pool: false, // Disable pooling for better reliability
-      connectionTimeout: isProduction ? 5000 : 15000, // Much shorter timeout on Render
-      greetingTimeout: isProduction ? 3000 : 10000,
-      socketTimeout: isProduction ? 5000 : 15000,
+      connectionTimeout: isProduction ? 8000 : 15000, // Slightly increased for Render
+      greetingTimeout: isProduction ? 5000 : 10000,
+      socketTimeout: isProduction ? 8000 : 15000,
       logger: false,
-      debug: false
+      debug: false,
+      // Add these for better Render compatibility
+      dnsTimeout: isProduction ? 5000 : 30000,
+      localAddress: undefined // Let system choose interface
     });
   }
 
   async sendPasswordChangeVerification(userEmail, verificationCode) {
+    // Try SendGrid first if configured
+    if (sendGridService && process.env.SENDGRID_API_KEY) {
+      try {
+        console.log('📧 Attempting to send via SendGrid...');
+        const result = await sendGridService.sendPasswordChangeVerification(userEmail, verificationCode);
+        console.log('✅ SendGrid email sent successfully');
+        return result;
+      } catch (sendGridError) {
+        console.error('❌ SendGrid failed, falling back to Gmail SMTP:', sendGridError.message);
+      }
+    }
     const mailOptions = {
       from: `"${process.env.COMPANY_NAME}" <${process.env.SMTP_FROM}>`,
       to: userEmail,
@@ -119,6 +143,17 @@ class EmailService {
   }
 
   async sendPasswordChangeConfirmation(userEmail, username) {
+    // Try SendGrid first if configured
+    if (sendGridService && process.env.SENDGRID_API_KEY) {
+      try {
+        const result = await sendGridService.sendPasswordChangeConfirmation(userEmail, username);
+        if (result.success) {
+          return result;
+        }
+      } catch (error) {
+        console.error('SendGrid confirmation failed, falling back to Gmail:', error.message);
+      }
+    }
     const mailOptions = {
       from: `"${process.env.COMPANY_NAME}" <${process.env.SMTP_FROM}>`,
       to: userEmail,
@@ -168,6 +203,14 @@ class EmailService {
   }
 
   async testConnection() {
+    // Test SendGrid first if configured
+    if (sendGridService && process.env.SENDGRID_API_KEY) {
+      const sendGridWorking = await sendGridService.testConnection();
+      if (sendGridWorking) {
+        console.log('📧 SendGrid service connection verified');
+        return true;
+      }
+    }
     try {
       await this.transporter.verify();
       console.log('Email service connection verified successfully');
