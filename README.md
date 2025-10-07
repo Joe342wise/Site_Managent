@@ -399,6 +399,32 @@ Site_Managent/
    - Clear node_modules: `rm -rf node_modules && npm install`
    - Check Node.js version compatibility
 
+## Deployment
+
+For production deployment, see the comprehensive [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) which covers:
+
+### Deployment Stack
+- **Database**: Supabase (Managed PostgreSQL)
+- **Backend API**: Render.com (Node.js hosting)
+- **Frontend**: Vercel (Static site hosting)
+
+### Key Features
+- Step-by-step deployment instructions for all three services
+- Environment variable configuration
+- Database migration guide
+- Testing and verification procedures
+- Troubleshooting common deployment issues
+- Cost considerations (free tier options available)
+- Custom domain setup (optional)
+
+### Quick Deployment Overview
+1. **Database**: Import `postgresql_schema.sql` into Supabase
+2. **Backend**: Deploy to Render using `render.yaml` configuration
+3. **Frontend**: Deploy to Vercel using `vercel.json` configuration
+4. **Configure**: Set environment variables for API connection
+
+See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed instructions.
+
 ## Support
 
 For technical support or questions:
