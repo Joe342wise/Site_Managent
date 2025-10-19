@@ -30,10 +30,22 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({
       staleTime: 10 * 60 * 1000, // 10 minutes
       retry: 3,
       onSuccess: (data) => {
-        console.log('Categories loaded successfully:', data?.length || 0, 'categories');
+        console.log('✅ Categories loaded successfully:', data?.length || 0, 'categories', data);
       },
-      onError: (err) => {
-        console.error('Failed to load categories:', err);
+      onError: (err: unknown) => {
+        const error = err instanceof Error && 'response' in err 
+          ? err as { message?: string; response?: { data?: unknown; status?: number }; config?: { url?: string; baseURL?: string; headers?: unknown } }
+          : { message: err instanceof Error ? err.message : 'Unknown error' };
+        console.error('❌ Failed to load categories:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+          config: {
+            url: error.config?.url,
+            baseURL: error.config?.baseURL,
+            headers: error.config?.headers
+          }
+        });
       }
     }
   );
@@ -137,7 +149,25 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({
               </div>
             ) : error ? (
               <div className="px-4 py-3 text-sm text-red-500 text-center">
-                Failed to load categories. Please refresh.
+                <div className="font-semibold">Failed to load categories</div>
+                <div className="text-xs mt-1 text-gray-600">
+                  {(() => {
+                    const errorObj = error instanceof Error && 'response' in error 
+                      ? error as { response?: { status?: number }; message?: string }
+                      : { message: error instanceof Error ? error.message : 'Unknown error' };
+                    return errorObj.response?.status === 401
+                      ? 'Authentication required. Please log in again.'
+                      : errorObj.response?.status === 404
+                      ? 'Categories endpoint not found. Check backend deployment.'
+                      : errorObj.message || 'Network error. Check console for details.';
+                  })()}
+                </div>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-2 text-xs text-blue-600 hover:text-blue-700 underline"
+                >
+                  Refresh page
+                </button>
               </div>
             ) : categories.length === 0 ? (
               <div className="px-4 py-3 text-sm text-gray-500 text-center">

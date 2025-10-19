@@ -26,9 +26,9 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
     estimate_id: estimateId,
     description: '',
     category_id: 0,
-    quantity: undefined as any,
+    quantity: 0,
     unit: '',
-    unit_price: undefined as any,
+    unit_price: 0,
     notes: '',
   });
 
@@ -61,9 +61,9 @@ const EstimateItemModal: React.FC<EstimateItemModalProps> = ({
         estimate_id: estimateId,
         description: '',
         category_id: 0,
-        quantity: undefined as any,
+        quantity: 0,
         unit: '',
-        unit_price: undefined as any,
+        unit_price: 0,
         notes: '',
       });
     }

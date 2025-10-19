@@ -183,8 +183,21 @@ class ApiService {
 
   // Categories
   async getCategories(): Promise<Category[]> {
-    const response: AxiosResponse<ApiResponse<Category[]>> = await this.api.get('/estimate-items/categories');
-    return response.data.data!;
+    try {
+      console.log('🔍 Fetching categories from:', this.api.defaults.baseURL + '/estimate-items/categories');
+      const response: AxiosResponse<ApiResponse<Category[]>> = await this.api.get('/estimate-items/categories');
+      console.log('📦 Categories response:', response.data);
+      return response.data.data!;
+    } catch (error: any) {
+      console.error('❌ getCategories error:', {
+        url: this.api.defaults.baseURL + '/estimate-items/categories',
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+        data: error?.response?.data,
+        message: error?.message
+      });
+      throw error;
+    }
   }
 
   // Estimate Items
