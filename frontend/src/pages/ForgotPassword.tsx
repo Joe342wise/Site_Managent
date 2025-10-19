@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft, Mail } from 'lucide-react';
+import { ArrowLeft, Mail } from 'lucide-react';
 import { useMutation } from 'react-query';
 import { apiService } from '../services/api';
 import toast from 'react-hot-toast';
+import logo from '../assets/logo.jpg';
 
 const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,8 +23,11 @@ const ForgotPasswordPage: React.FC = () => {
         setStep('reset');
         toast.success('Verification code sent to your email');
       },
-      onError: (error: any) => {
-        toast.error(error.response?.data?.message || 'Failed to send verification code');
+      onError: (error: unknown) => {
+        const errorMessage = error instanceof Error && 'response' in error 
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message 
+          : 'Failed to send verification code';
+        toast.error(errorMessage || 'Failed to send verification code');
       },
     }
   );
@@ -39,8 +43,11 @@ const ForgotPasswordPage: React.FC = () => {
           navigate('/login');
         }, 2000);
       },
-      onError: (error: any) => {
-        toast.error(error.response?.data?.message || 'Failed to reset password');
+      onError: (error: unknown) => {
+        const errorMessage = error instanceof Error && 'response' in error 
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message 
+          : 'Failed to reset password';
+        toast.error(errorMessage || 'Failed to reset password');
       },
     }
   );
@@ -102,8 +109,8 @@ const ForgotPasswordPage: React.FC = () => {
         </div>
 
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-xl bg-blue-600 text-white">
-            <Building2 className="h-8 w-8" />
+          <div className="mx-auto h-24 w-24 flex items-center justify-center">
+            <img src={logo} alt="De'Aion Contractors Logo" className="w-24 h-24 rounded-full" />
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             {step === 'email' ? 'Forgot Password' : 'Reset Password'}
