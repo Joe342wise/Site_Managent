@@ -23,11 +23,18 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { data: categories = [], isLoading } = useQuery<Category[]>(
+  const { data: categories = [], isLoading, error } = useQuery<Category[]>(
     'categories',
     apiService.getCategories,
     {
       staleTime: 10 * 60 * 1000, // 10 minutes
+      retry: 3,
+      onSuccess: (data) => {
+        console.log('Categories loaded successfully:', data?.length || 0, 'categories');
+      },
+      onError: (err) => {
+        console.error('Failed to load categories:', err);
+      }
     }
   );
 
@@ -96,11 +103,13 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({
         <span>{getSelectedCategoryNames()}</span>
         {selectedCategories.length > 0 && (
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               clearAll();
             }}
             className="ml-1 hover:bg-blue-800 rounded-full p-0.5"
+            title="Clear all selected categories"
           >
             <X className="h-3 w-3" />
           </button>
@@ -108,7 +117,7 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-10 mt-2 w-72 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+        <div className="absolute left-0 z-50 mt-2 w-80 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 overflow-visible">
           <div className="p-2">
             {/* Search input */}
             <input
@@ -116,7 +125,7 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({
               placeholder="Search categories..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
               autoFocus
             />
           </div>
@@ -126,9 +135,17 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({
               <div className="px-4 py-3 text-sm text-gray-500 text-center">
                 Loading categories...
               </div>
+            ) : error ? (
+              <div className="px-4 py-3 text-sm text-red-500 text-center">
+                Failed to load categories. Please refresh.
+              </div>
+            ) : categories.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                No categories available in the system
+              </div>
             ) : filteredCategories.length === 0 ? (
               <div className="px-4 py-3 text-sm text-gray-500 text-center">
-                No categories found
+                No categories match "{searchTerm}"
               </div>
             ) : (
               <div className="py-1">

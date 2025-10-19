@@ -64,7 +64,7 @@ const getEstimateItems = asyncHandler(async (req, res) => {
       COUNT(*) as total_items,
       SUM(total_estimated) as total_estimated,
       COUNT(DISTINCT category_id) as categories_used,
-      (SELECT COUNT(*) FROM actuals a
+      (SELECT COUNT(DISTINCT ei.item_id) FROM actuals a
        JOIN estimate_items ei ON a.item_id = ei.item_id
        WHERE ei.estimate_id = $1) as items_with_actuals
     FROM estimate_items
