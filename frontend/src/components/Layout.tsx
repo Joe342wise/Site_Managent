@@ -12,6 +12,7 @@ import {
   LogOut,
   Home,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import logo from '../assets/logo.jpg';
 
@@ -36,7 +37,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    toast.success('Logged out successfully');
+    navigate('/');
   };
 
   return (

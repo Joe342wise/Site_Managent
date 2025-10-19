@@ -90,6 +90,17 @@ const ForgotPasswordPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
+        {/* Back to Home Button */}
+        <div className="flex justify-start">
+          <Link
+            to="/"
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Home
+          </Link>
+        </div>
+
         <div>
           <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-xl bg-blue-600 text-white">
             <Building2 className="h-8 w-8" />
