@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Pages
+import LandingPage from './pages/Landing';
 import LoginPage from './pages/Login';
 import ForgotPasswordPage from './pages/ForgotPassword';
 import DashboardPage from './pages/Dashboard';
@@ -66,6 +67,9 @@ const AppRoutes: React.FC = () => {
   return (
     <Router>
       <Routes>
+        {/* Landing Page - No auth required */}
+        <Route path="/" element={<LandingPage />} />
+
         {/* Public Routes */}
         <Route
           path="/login"
@@ -166,11 +170,8 @@ const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
         {/* Catch all route */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
