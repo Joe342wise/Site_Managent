@@ -25,8 +25,17 @@ class ApiService {
   private api: AxiosInstance;
 
   constructor() {
+    const apiUrl = import.meta.env.VITE_API_URL;
+    const baseURL = apiUrl ? `${apiUrl}/api` : '/api';
+
+    console.log('🔧 API Service initializing:', {
+      VITE_API_URL: apiUrl,
+      baseURL: baseURL,
+      env: import.meta.env.MODE
+    });
+
     this.api = axios.create({
-      baseURL: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api',
+      baseURL,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
@@ -61,6 +70,11 @@ class ApiService {
         return Promise.reject(error);
       }
     );
+  }
+
+  // Get base URL for debugging
+  getBaseURL(): string {
+    return this.api.defaults?.baseURL || '/api';
   }
 
   // Authentication
@@ -184,13 +198,15 @@ class ApiService {
   // Categories
   async getCategories(): Promise<Category[]> {
     try {
-      console.log('🔍 Fetching categories from:', this.api.defaults.baseURL + '/estimate-items/categories');
+      const baseURL = this.api.defaults?.baseURL || '/api';
+      console.log('🔍 Fetching categories from:', baseURL + '/estimate-items/categories');
       const response: AxiosResponse<ApiResponse<Category[]>> = await this.api.get('/estimate-items/categories');
       console.log('📦 Categories response:', response.data);
       return response.data.data!;
     } catch (error: any) {
+      const baseURL = this.api.defaults?.baseURL || '/api';
       console.error('❌ getCategories error:', {
-        url: this.api.defaults.baseURL + '/estimate-items/categories',
+        url: baseURL + '/estimate-items/categories',
         status: error?.response?.status,
         statusText: error?.response?.statusText,
         data: error?.response?.data,
