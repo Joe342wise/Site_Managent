@@ -42,7 +42,11 @@ const limiter = rateLimit({
 // CORS Configuration - Restricts API access to authorized origins only
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production'
-    ? process.env.FRONTEND_URL || 'https://your-app.vercel.app'
+    ? [
+        'https://site-managent.vercel.app',
+        'https://app.nkowusu.com',
+        process.env.FRONTEND_URL
+      ].filter(Boolean)
     : ['http://localhost:3001', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
