@@ -259,10 +259,11 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { description, category_id, quantity, unit, unit_price, notes } = req.body;
 
-  const [existingItem] = await pool.query(
+  const existingItemResult = await pool.query(
     'SELECT estimate_id FROM estimate_items WHERE item_id = $1',
     [id]
   );
+  const existingItem = existingItemResult.rows;
 
   if (existingItem.length === 0) {
     return res.status(404).json({
@@ -277,14 +278,15 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
   const params = [];
 
   if (description !== undefined) {
-    updates.push('description = ?');
+    updates.push(`description = $${params.length + 1}`);
     params.push(description);
   }
   if (category_id !== undefined) {
-    const [categoryCheck] = await pool.query(
+    const categoryCheckResult = await pool.query(
       'SELECT category_id FROM categories WHERE category_id = $1',
       [category_id]
     );
+    const categoryCheck = categoryCheckResult.rows;
 
     if (categoryCheck.length === 0) {
       return res.status(400).json({
@@ -293,23 +295,23 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
       });
     }
 
-    updates.push('category_id = ?');
+    updates.push(`category_id = $${params.length + 1}`);
     params.push(category_id);
   }
   if (quantity !== undefined) {
-    updates.push('quantity = ?');
+    updates.push(`quantity = $${params.length + 1}`);
     params.push(quantity);
   }
   if (unit !== undefined) {
-    updates.push('unit = ?');
+    updates.push(`unit = $${params.length + 1}`);
     params.push(unit);
   }
   if (unit_price !== undefined) {
-    updates.push('unit_price = ?');
+    updates.push(`unit_price = $${params.length + 1}`);
     params.push(unit_price);
   }
   if (notes !== undefined) {
-    updates.push('notes = ?');
+    updates.push(`notes = $${params.length + 1}`);
     params.push(notes && notes.trim() ? notes : null);
   }
 
@@ -323,12 +325,12 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
   updates.push('updated_at = CURRENT_TIMESTAMP');
   params.push(id);
 
-  const [result] = await pool.query(
-    `UPDATE estimate_items SET ${updates.join(', ')} WHERE item_id = $1`,
+  const result = await pool.query(
+    `UPDATE estimate_items SET ${updates.join(', ')} WHERE item_id = $${params.length}`,
     params
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'Estimate item not found'
@@ -337,18 +339,19 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
 
   await pool.query(
     'UPDATE estimates SET total_estimated = (SELECT SUM(total_estimated) FROM estimate_items WHERE estimate_id = $1) WHERE estimate_id = $1',
-    [estimate_id, estimate_id]
+    [estimate_id]
   );
 
-  const [updatedItem] = await pool.query(`
+  const updatedItemResult = await pool.query(`
     SELECT ei.*,
            c.name as category_name,
            (SELECT COUNT(*) FROM actuals a WHERE a.item_id = ei.item_id) as has_actuals,
            (SELECT SUM(total_actual) FROM actuals a WHERE a.item_id = ei.item_id) as total_actual_cost
     FROM estimate_items ei
     LEFT JOIN categories c ON ei.category_id = c.category_id
-    WHERE ei.item_id = ?
+    WHERE ei.item_id = $1
   `, [id]);
+  const updatedItem = updatedItemResult.rows;
 
   res.json({
     success: true,
@@ -360,10 +363,11 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
 const deleteEstimateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const [existingItem] = await pool.query(
+  const existingItemResult = await pool.query(
     'SELECT estimate_id FROM estimate_items WHERE item_id = $1',
     [id]
   );
+  const existingItem = existingItemResult.rows;
 
   if (existingItem.length === 0) {
     return res.status(404).json({
@@ -374,10 +378,11 @@ const deleteEstimateItem = asyncHandler(async (req, res) => {
 
   const estimate_id = existingItem[0].estimate_id;
 
-  const [actualCount] = await pool.query(
+  const actualCountResult = await pool.query(
     'SELECT COUNT(*) as count FROM actuals WHERE item_id = $1',
     [id]
   );
+  const actualCount = actualCountResult.rows;
 
   if (actualCount[0].count > 0) {
     return res.status(400).json({
@@ -386,12 +391,12 @@ const deleteEstimateItem = asyncHandler(async (req, res) => {
     });
   }
 
-  const [result] = await pool.query(
+  const result = await pool.query(
     'DELETE FROM estimate_items WHERE item_id = $1',
     [id]
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'Estimate item not found'
@@ -400,7 +405,7 @@ const deleteEstimateItem = asyncHandler(async (req, res) => {
 
   await pool.query(
     'UPDATE estimates SET total_estimated = (SELECT COALESCE(SUM(total_estimated), 0) FROM estimate_items WHERE estimate_id = $1) WHERE estimate_id = $1',
-    [estimate_id, estimate_id]
+    [estimate_id]
   );
 
   res.json({
@@ -420,10 +425,11 @@ const bulkCreateEstimateItems = asyncHandler(async (req, res) => {
     });
   }
 
-  const [estimateCheck] = await pool.query(
+  const estimateCheckResult = await pool.query(
     'SELECT estimate_id FROM estimates WHERE estimate_id = $1',
     [estimate_id]
   );
+  const estimateCheck = estimateCheckResult.rows;
 
   if (estimateCheck.length === 0) {
     return res.status(400).json({
@@ -432,38 +438,38 @@ const bulkCreateEstimateItems = asyncHandler(async (req, res) => {
     });
   }
 
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
 
   try {
-    await connection.beginTransaction();
+    await client.query('BEGIN');
 
     const createdItems = [];
 
     for (const item of items) {
       const { description, category_id, quantity = 1, unit, unit_price, notes } = item;
 
-      const [result] = await connection.execute(
-        'INSERT INTO estimate_items (estimate_id, description, category_id, quantity, unit, unit_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      const result = await client.query(
+        'INSERT INTO estimate_items (estimate_id, description, category_id, quantity, unit, unit_price, notes) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING item_id',
         [estimate_id, description, category_id, quantity, unit, unit_price, notes]
       );
 
-      const [newItem] = await connection.execute(`
+      const newItemResult = await client.query(`
         SELECT ei.*,
                c.name as category_name
         FROM estimate_items ei
         LEFT JOIN categories c ON ei.category_id = c.category_id
-        WHERE ei.item_id = ?
-      `, [result.insertId]);
+        WHERE ei.item_id = $1
+      `, [result.rows[0].item_id]);
 
-      createdItems.push(newItem[0]);
+      createdItems.push(newItemResult.rows[0]);
     }
 
-    await connection.execute(
+    await client.query(
       'UPDATE estimates SET total_estimated = (SELECT SUM(total_estimated) FROM estimate_items WHERE estimate_id = $1) WHERE estimate_id = $1',
-      [estimate_id, estimate_id]
+      [estimate_id]
     );
 
-    await connection.commit();
+    await client.query('COMMIT');
 
     res.status(201).json({
       success: true,
@@ -471,25 +477,25 @@ const bulkCreateEstimateItems = asyncHandler(async (req, res) => {
       data: createdItems
     });
   } catch (error) {
-    await connection.rollback();
+    await client.query('ROLLBACK');
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 });
 
 const getItemsByCategory = asyncHandler(async (req, res) => {
   const { estimate_id } = req.params;
 
-  const [itemsByCategory] = await pool.query(`
+  const itemsByCategoryResult = await pool.query(`
     SELECT
       c.category_id,
       c.name as category_name,
       c.description as category_description,
       COUNT(ei.item_id) as item_count,
       SUM(ei.total_estimated) as category_total,
-      JSON_ARRAYAGG(
-        JSON_OBJECT(
+      JSON_AGG(
+        JSON_BUILD_OBJECT(
           'item_id', ei.item_id,
           'description', ei.description,
           'quantity', ei.quantity,
@@ -503,6 +509,7 @@ const getItemsByCategory = asyncHandler(async (req, res) => {
     GROUP BY c.category_id, c.name, c.description
     ORDER BY c.sort_order
   `, [estimate_id]);
+  const itemsByCategory = itemsByCategoryResult.rows;
 
   res.json({
     success: true,

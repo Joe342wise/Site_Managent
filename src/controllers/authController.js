@@ -76,7 +76,7 @@ const updateProfile = asyncHandler(async (req, res) => {
     [username, email, full_name, profile_image, userId]
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'User not found'

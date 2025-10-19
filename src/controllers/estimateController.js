@@ -2,8 +2,9 @@ const { pool } = require('../config/database');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 const getAllEstimates = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, site_id, status, search } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const { page = 1, site_id, status, search } = req.query;
+  const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+  const offset = (parseInt(page) - 1) * limit;
 
   let query = `
     SELECT e.*,
@@ -48,14 +49,14 @@ const getAllEstimates = asyncHandler(async (req, res) => {
     countQuery += whereClause;
   }
 
-  query += ` ORDER BY e.date_created DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
+  query += ` ORDER BY e.date_created DESC LIMIT ${limit} OFFSET ${offset}`;
 
   const estimatesResult = await pool.query(query, params);
   const countResult = await pool.query(countQuery, params);
   const estimates = estimatesResult.rows;
 
   const total = countResult.rows[0].total;
-  const totalPages = Math.ceil(total / parseInt(limit));
+  const totalPages = Math.ceil(total / limit);
 
   res.json({
     success: true,
@@ -214,7 +215,7 @@ const updateEstimate = asyncHandler(async (req, res) => {
     params
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'Estimate not found'
@@ -267,7 +268,7 @@ const deleteEstimate = asyncHandler(async (req, res) => {
     [id]
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'Estimate not found'

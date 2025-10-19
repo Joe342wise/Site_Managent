@@ -2,8 +2,9 @@ const { pool } = require('../config/database');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 const getAllSites = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, status, search } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const { page = 1, status, search } = req.query;
+  const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+  const offset = (parseInt(page) - 1) * limit;
 
   let query = `
     SELECT s.*,
@@ -41,14 +42,14 @@ const getAllSites = asyncHandler(async (req, res) => {
     countQuery += whereClause;
   }
 
-  query += ` ORDER BY s.created_at DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
+  query += ` ORDER BY s.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
 
   const sitesResult = await pool.query(query, whereParams);
   const countResult = await pool.query(countQuery, whereParams);
   const sites = sitesResult.rows;
 
   const total = countResult.rows[0].total;
-  const totalPages = Math.ceil(total / parseInt(limit));
+  const totalPages = Math.ceil(total / limit);
 
   res.json({
     success: true,
@@ -194,7 +195,7 @@ const updateSite = asyncHandler(async (req, res) => {
     params
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'Site not found'
@@ -245,7 +246,7 @@ const deleteSite = asyncHandler(async (req, res) => {
     [id]
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'Site not found'

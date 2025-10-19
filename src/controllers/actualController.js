@@ -2,8 +2,9 @@ const { pool } = require('../config/database');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 const getAllActuals = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, site_id, estimate_id, item_id, date_from, date_to } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const { page = 1, site_id, estimate_id, item_id, date_from, date_to } = req.query;
+  const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+  const offset = (parseInt(page) - 1) * limit;
 
   let query = `
     SELECT a.*,
@@ -66,7 +67,7 @@ const getAllActuals = asyncHandler(async (req, res) => {
     countQuery += whereClause;
   }
 
-  query += ` ORDER BY a.date_recorded DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
+  query += ` ORDER BY a.date_recorded DESC LIMIT ${limit} OFFSET ${offset}`;
 
   const actualsResult = await pool.query(query, params);
   const countResult = await pool.query(countQuery, params);
@@ -92,14 +93,14 @@ const getAllActuals = asyncHandler(async (req, res) => {
   const summaryResult = await pool.query(summaryQuery, params);
 
   const total = countResult.rows[0].total;
-  const totalPages = Math.ceil(total / parseInt(limit));
+  const totalPages = Math.ceil(total / limit);
 
   res.json({
     success: true,
     data: actuals,
     pagination: {
       page: parseInt(page),
-      limit: parseInt(limit),
+      limit,
       total,
       totalPages,
       hasNext: parseInt(page) < totalPages,
@@ -364,7 +365,7 @@ const deleteActual = asyncHandler(async (req, res) => {
     [id]
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'Actual cost record not found'

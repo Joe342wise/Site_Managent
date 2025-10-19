@@ -3,8 +3,9 @@ const { pool } = require('../config/database');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 const getAllUsers = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, role, search } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const { page = 1, role, search } = req.query;
+  const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+  const offset = (parseInt(page) - 1) * limit;
 
   let query = 'SELECT user_id, username, email, full_name, role, is_active, created_at FROM users';
   let countQuery = 'SELECT COUNT(*) as total FROM users';
@@ -29,14 +30,14 @@ const getAllUsers = asyncHandler(async (req, res) => {
     countQuery += whereClause;
   }
 
-  query += ` ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
+  query += ` ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
 
   const usersResult = await pool.query(query, params);
   const countResult = await pool.query(countQuery, params);
   const users = usersResult.rows;
 
   const total = countResult.rows[0].total;
-  const totalPages = Math.ceil(total / parseInt(limit));
+  const totalPages = Math.ceil(total / limit);
 
   res.json({
     success: true,
@@ -141,7 +142,7 @@ const updateUser = asyncHandler(async (req, res) => {
     params
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'User not found'
@@ -176,7 +177,7 @@ const deleteUser = asyncHandler(async (req, res) => {
     [id]
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'User not found'
@@ -200,7 +201,7 @@ const resetUserPassword = asyncHandler(async (req, res) => {
     [hashedPassword, id]
   );
 
-  if (result.affectedRows === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({
       success: false,
       message: 'User not found'
