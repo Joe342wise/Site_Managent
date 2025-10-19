@@ -362,6 +362,7 @@ const updateEstimateItem = asyncHandler(async (req, res) => {
 
 const deleteEstimateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  const { force } = req.query; // Allow cascade delete with ?force=true
 
   const existingItemResult = await pool.query(
     'SELECT estimate_id FROM estimate_items WHERE item_id = $1',
@@ -378,40 +379,76 @@ const deleteEstimateItem = asyncHandler(async (req, res) => {
 
   const estimate_id = existingItem[0].estimate_id;
 
+  // Check for existing actuals
   const actualCountResult = await pool.query(
     'SELECT COUNT(*) as count FROM actuals WHERE item_id = $1',
     [id]
   );
   const actualCount = actualCountResult.rows;
+  const hasActuals = parseInt(actualCount[0].count) > 0;
 
-  if (actualCount[0].count > 0) {
+  // If actuals exist and force delete not requested, return detailed error
+  if (hasActuals && force !== 'true') {
     return res.status(400).json({
       success: false,
-      message: 'Cannot delete item with recorded actuals. Delete actuals first.'
+      message: 'Cannot delete item with recorded actuals. Delete actuals first.',
+      details: {
+        actualCount: parseInt(actualCount[0].count),
+        canForceDelete: true,
+        hint: 'Add ?force=true to delete this item and all associated actuals'
+      }
     });
   }
 
-  const result = await pool.query(
-    'DELETE FROM estimate_items WHERE item_id = $1',
-    [id]
-  );
+  // Use transaction for cascade delete
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (result.rowCount === 0) {
-    return res.status(404).json({
-      success: false,
-      message: 'Estimate item not found'
+    // If force delete, remove actuals first
+    if (hasActuals && force === 'true') {
+      const deleteActualsResult = await client.query(
+        'DELETE FROM actuals WHERE item_id = $1',
+        [id]
+      );
+      console.log(`Cascade deleted ${deleteActualsResult.rowCount} actual cost records for item ${id}`);
+    }
+
+    // Delete the estimate item
+    const result = await client.query(
+      'DELETE FROM estimate_items WHERE item_id = $1',
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        success: false,
+        message: 'Estimate item not found'
+      });
+    }
+
+    // Update estimate total
+    await client.query(
+      'UPDATE estimates SET total_estimated = (SELECT COALESCE(SUM(total_estimated), 0) FROM estimate_items WHERE estimate_id = $1) WHERE estimate_id = $1',
+      [estimate_id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: hasActuals
+        ? `Estimate item and ${actualCount[0].count} associated actual(s) deleted successfully`
+        : 'Estimate item deleted successfully',
+      deletedActuals: hasActuals ? parseInt(actualCount[0].count) : 0
     });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
-
-  await pool.query(
-    'UPDATE estimates SET total_estimated = (SELECT COALESCE(SUM(total_estimated), 0) FROM estimate_items WHERE estimate_id = $1) WHERE estimate_id = $1',
-    [estimate_id]
-  );
-
-  res.json({
-    success: true,
-    message: 'Estimate item deleted successfully'
-  });
 });
 
 const bulkCreateEstimateItems = asyncHandler(async (req, res) => {

@@ -86,15 +86,30 @@ const EstimateDetails: React.FC = () => {
   );
 
   const deleteItemMutation = useMutation(
-    (id: number) => apiService.deleteEstimateItem(id),
+    ({ id, force }: { id: number; force?: boolean }) => apiService.deleteEstimateItem(id, force),
     {
-      onSuccess: () => {
+      onSuccess: (_, variables) => {
         queryClient.invalidateQueries(['estimate-items', estimateId]);
         queryClient.invalidateQueries(['estimate', estimateId]);
-        toast.success('Item deleted successfully');
+        const message = variables.force
+          ? 'Item and associated actuals deleted successfully'
+          : 'Item deleted successfully';
+        toast.success(message);
       },
-      onError: () => {
-        toast.error('Failed to delete item');
+      onError: (error: unknown) => {
+        const errorData = error instanceof Error && 'response' in error 
+          ? (error as { response?: { data?: { details?: { canForceDelete?: boolean; actualCount?: number }; message?: string } } }).response?.data
+          : undefined;
+
+        // If error is due to existing actuals, show detailed error
+        if (errorData?.details?.canForceDelete) {
+          toast.error(
+            `This item has ${errorData.details.actualCount} recorded actual cost(s). Use "Delete with Actuals" option.`,
+            { duration: 5000 }
+          );
+        } else {
+          toast.error(errorData?.message || 'Failed to delete item');
+        }
       },
     }
   );
@@ -126,9 +141,24 @@ const EstimateDetails: React.FC = () => {
   const items = itemsData?.items || [];
   const summary = itemsData?.summary || {};
 
-  const handleDeleteItem = (item: EstimateItem) => {
-    if (confirm(`Are you sure you want to delete "${item.description}"?`)) {
-      deleteItemMutation.mutate(item.item_id);
+  const handleDeleteItem = (item: EstimateItem, force: boolean = false) => {
+    const hasActuals = item.has_actuals && item.has_actuals > 0;
+
+    if (force) {
+      // Force delete confirmation
+      const confirmMessage = `⚠️ WARNING: This will permanently delete "${item.description}" and ALL ${item.has_actuals} recorded actual cost(s).\n\nThis action CANNOT be undone!\n\nAre you absolutely sure?`;
+      if (confirm(confirmMessage)) {
+        deleteItemMutation.mutate({ id: item.item_id, force: true });
+      }
+    } else {
+      // Normal delete
+      const confirmMessage = hasActuals
+        ? `"${item.description}" has ${item.has_actuals} actual cost record(s).\n\nYou must delete the actuals first, or use "Delete with Actuals" option.`
+        : `Are you sure you want to delete "${item.description}"?`;
+
+      if (confirm(confirmMessage)) {
+        deleteItemMutation.mutate({ id: item.item_id, force: false });
+      }
     }
   };
 
@@ -312,14 +342,35 @@ const EstimateDetails: React.FC = () => {
                         >
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => handleDeleteItem(item)}
-                          disabled={deleteItemMutation.isLoading}
-                          className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                          title="Delete item"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {item.has_actuals && item.has_actuals > 0 ? (
+                          <div className="relative group">
+                            <button
+                              onClick={() => handleDeleteItem(item, false)}
+                              disabled={deleteItemMutation.isLoading}
+                              className="text-orange-600 hover:text-orange-900 disabled:opacity-50"
+                              title={`This item has ${item.has_actuals} actual cost record(s)`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteItem(item, true)}
+                              disabled={deleteItemMutation.isLoading}
+                              className="ml-1 text-red-600 hover:text-red-900 disabled:opacity-50 text-xs font-semibold"
+                              title={`Force delete: Remove item AND all ${item.has_actuals} actual cost(s)`}
+                            >
+                              ⚠
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleDeleteItem(item, false)}
+                            disabled={deleteItemMutation.isLoading}
+                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                            title="Delete item"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

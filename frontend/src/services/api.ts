@@ -208,8 +208,8 @@ class ApiService {
     return response.data.data!;
   }
 
-  async deleteEstimateItem(id: number): Promise<void> {
-    await this.api.delete(`/estimate-items/${id}`);
+  async deleteEstimateItem(id: number, force: boolean = false): Promise<void> {
+    await this.api.delete(`/estimate-items/${id}${force ? '?force=true' : ''}`);
   }
 
   async getItemsByCategory(estimateId: number): Promise<any[]> {
