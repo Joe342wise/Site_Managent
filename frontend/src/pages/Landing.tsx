@@ -15,6 +15,7 @@ import {
   Wind,
   LayoutGrid
 } from 'lucide-react';
+import logo from '../assets/logo.jpg';
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
@@ -68,7 +69,7 @@ const Landing: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Building2 className="w-8 h-8 text-blue-600" />
+              <img src={logo} alt="De'Aion Contractors Logo" className="w-12 h-12 rounded-full" />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">De'Aion Contractors</h1>
                 <p className="text-xs text-gray-600">Construction Site Management</p>
@@ -187,7 +188,7 @@ const Landing: React.FC = () => {
           <div className="grid md:grid-cols-3 gap-8">
             <div>
               <div className="flex items-center space-x-3 mb-4">
-                <Building2 className="w-6 h-6" />
+                <img src={logo} alt="De'Aion Contractors Logo" className="w-8 h-8 rounded-full" />
                 <h4 className="text-lg font-bold">De'Aion Contractors</h4>
               </div>
               <p className="text-gray-400">

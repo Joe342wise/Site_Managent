@@ -13,6 +13,7 @@ import {
   Home,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import logo from '../assets/logo.jpg';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -56,8 +57,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </button>
             </div>
             <div className="h-0 flex-1 overflow-y-auto pt-5 pb-4">
-              <div className="flex flex-shrink-0 items-center px-4">
-                <h1 className="text-xl font-bold text-gray-900">De'Aion Contractors</h1>
+              <div className="flex flex-shrink-0 items-center px-4 space-x-3">
+                <img src={logo} alt="De'Aion Contractors Logo" className="w-10 h-10 rounded-full" />
+                <h1 className="text-xl font-bold text-gray-900">De'Aion</h1>
               </div>
               <nav className="mt-5 flex flex-1 flex-col px-2">
                 <div className="space-y-1">
@@ -114,8 +116,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 shadow-xl">
-          <div className="flex h-16 shrink-0 items-center">
-            <h1 className="text-xl font-bold text-gray-900">De'Aion Contractors</h1>
+          <div className="flex h-16 shrink-0 items-center space-x-3">
+            <img src={logo} alt="De'Aion Contractors Logo" className="w-10 h-10 rounded-full" />
+            <h1 className="text-xl font-bold text-gray-900">De'Aion</h1>
           </div>
           <nav className="flex flex-1 flex-col">
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
