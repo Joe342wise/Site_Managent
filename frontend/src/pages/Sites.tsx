@@ -43,6 +43,22 @@ const SitesPage: React.FC = () => {
     }
   );
 
+  const deleteSiteMutation = useMutation(
+    (id: number) => apiService.deleteSite(id),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('sites');
+        toast.success('Site deleted successfully');
+      },
+      onError: (error: unknown) => {
+        const errorMessage = error instanceof Error && 'response' in error 
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message 
+          : 'Failed to delete site';
+        toast.error(errorMessage || 'Failed to delete site');
+      },
+    }
+  );
+
   const updateSiteMutation = useMutation(
     ({ id, data }: { id: number; data: Partial<CreateSiteRequest> }) =>
       apiService.updateSite(id, data),
@@ -263,11 +279,12 @@ const SitesPage: React.FC = () => {
                 </button>
                 <button
                   onClick={() => {
-                    if (confirm('Are you sure you want to delete this site?')) {
-                      alert('Delete functionality - Coming soon!');
+                    if (confirm(`Are you sure you want to delete "${site.name}"? This action cannot be undone.`)) {
+                      deleteSiteMutation.mutate(site.site_id);
                     }
                   }}
-                  className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-red-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                  disabled={deleteSiteMutation.isLoading}
+                  className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-red-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Delete site"
                 >
                   <Trash2 className="h-4 w-4" />
