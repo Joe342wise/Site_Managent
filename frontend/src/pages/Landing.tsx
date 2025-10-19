@@ -2,8 +2,6 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Building2,
-  Calculator,
-  TrendingUp,
   CheckCircle2,
   Phone,
   ArrowRight,
