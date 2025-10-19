@@ -223,7 +223,7 @@ class ApiService {
   }
 
   // Actuals
-  async getActuals(params?: { page?: number; limit?: number; site_id?: number; estimate_id?: number; item_id?: number; date_from?: string; date_to?: string }): Promise<{ data: Actual[]; pagination: any; summary: any }> {
+  async getActuals(params?: { page?: number; limit?: number; site_id?: number; estimate_id?: number; item_id?: number; category_id?: number; date_from?: string; date_to?: string }): Promise<{ data: Actual[]; pagination: any; summary: any }> {
     const response: AxiosResponse<{ success: boolean; data: Actual[]; pagination: any; summary: any }> = await this.api.get('/actuals', { params });
     return {
       data: response.data.data,

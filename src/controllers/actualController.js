@@ -2,7 +2,7 @@ const { pool } = require('../config/database');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 const getAllActuals = asyncHandler(async (req, res) => {
-  const { page = 1, site_id, estimate_id, item_id, date_from, date_to } = req.query;
+  const { page = 1, site_id, estimate_id, item_id, category_id, date_from, date_to } = req.query;
   const limit = Math.min(parseInt(req.query.limit) || 10, 100);
   const offset = (parseInt(page) - 1) * limit;
 
@@ -13,6 +13,7 @@ const getAllActuals = asyncHandler(async (req, res) => {
            ei.unit as item_unit,
            ei.unit_price as estimated_unit_price,
            ei.total_estimated,
+           ei.category_id,
            c.name as category_name,
            e.title as estimate_title,
            s.name as site_name,
@@ -31,6 +32,7 @@ const getAllActuals = asyncHandler(async (req, res) => {
     JOIN estimate_items ei ON a.item_id = ei.item_id
     JOIN estimates e ON ei.estimate_id = e.estimate_id
     JOIN sites s ON e.site_id = s.site_id
+    JOIN categories c ON ei.category_id = c.category_id
   `;
 
   const params = [];
@@ -49,6 +51,11 @@ const getAllActuals = asyncHandler(async (req, res) => {
   if (item_id) {
     whereConditions.push(`a.item_id = $${params.length + 1}`);
     params.push(item_id);
+  }
+
+  if (category_id) {
+    whereConditions.push(`ei.category_id = $${params.length + 1}`);
+    params.push(category_id);
   }
 
   if (date_from) {
@@ -84,6 +91,7 @@ const getAllActuals = asyncHandler(async (req, res) => {
     JOIN estimate_items ei ON a.item_id = ei.item_id
     JOIN estimates e ON ei.estimate_id = e.estimate_id
     JOIN sites s ON e.site_id = s.site_id
+    JOIN categories c ON ei.category_id = c.category_id
   `;
 
   if (whereConditions.length > 0) {

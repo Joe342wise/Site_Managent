@@ -18,6 +18,7 @@ import type { AxiosError } from 'axios';
 import { EstimateItem, CreateActualRequest, Actual } from '../types';
 import { formatCurrency, formatDate } from '../utils';
 import LoadingSpinner from '../components/LoadingSpinner';
+import CategoryFilter from '../components/CategoryFilter';
 import toast from 'react-hot-toast';
 
 interface PurchaseEntry {
@@ -61,6 +62,7 @@ const ActualDetailEnhanced: React.FC = () => {
   const queryClient = useQueryClient();
   const [itemStates, setItemStates] = useState<Record<number, ItemPurchaseState>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
 
   // Fetch estimate details
   const { data: estimateData, isLoading: isLoadingEstimate } = useQuery(
@@ -370,7 +372,12 @@ const ActualDetailEnhanced: React.FC = () => {
   }
 
   const estimate = estimateData;
-  const items = itemsData.items || [];
+  const allItems = itemsData.items || [];
+
+  // Filter items by selected categories (client-side)
+  const items = selectedCategories.length > 0
+    ? allItems.filter(item => selectedCategories.includes(item.category_id))
+    : allItems;
   const totalPurchaseAmount = getTotalPurchaseAmount();
   const totalEstimated = estimate.total_estimated || 0;
   const variance = getVariance(totalEstimated, totalPurchaseAmount);
@@ -448,6 +455,25 @@ const ActualDetailEnhanced: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Category Filter */}
+      <div className="bg-white shadow px-4 py-3 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <CategoryFilter
+              selectedCategories={selectedCategories}
+              onCategoryChange={setSelectedCategories}
+              multiple={true}
+              placeholder="All Categories"
+            />
+            {selectedCategories.length > 0 && (
+              <span className="text-sm text-gray-600">
+                Showing {items.length} of {allItems.length} items
+              </span>
+            )}
           </div>
         </div>
       </div>

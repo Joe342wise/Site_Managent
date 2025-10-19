@@ -17,6 +17,7 @@ import { EstimateItem, CreateEstimateItemRequest } from '../types';
 import { formatCurrency, formatDate, getStatusColor } from '../utils';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EstimateItemModal from '../components/EstimateItemModal';
+import CategoryFilter from '../components/CategoryFilter';
 import toast from 'react-hot-toast';
 
 const EstimateDetails: React.FC = () => {
@@ -25,7 +26,7 @@ const EstimateDetails: React.FC = () => {
   const queryClient = useQueryClient();
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [editingItem, setEditingItem] = useState<EstimateItem | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
 
   const { data: estimate, isLoading: estimateLoading } = useQuery(
     ['estimate', estimateId],
@@ -36,21 +37,11 @@ const EstimateDetails: React.FC = () => {
   );
 
   const { data: itemsData, isLoading: itemsLoading } = useQuery(
-    ['estimate-items', estimateId, selectedCategory],
-    () => apiService.getEstimateItems(parseInt(estimateId!), {
-      category_id: selectedCategory ? parseInt(selectedCategory) : undefined
-    }),
+    ['estimate-items', estimateId],
+    () => apiService.getEstimateItems(parseInt(estimateId!)),
     {
       enabled: !!estimateId,
       refetchInterval: 30000,
-    }
-  );
-
-  const { data: categories } = useQuery(
-    ['categories'],
-    () => apiService.getCategories(),
-    {
-      staleTime: 10 * 60 * 1000, // 10 minutes
     }
   );
 
@@ -138,8 +129,13 @@ const EstimateDetails: React.FC = () => {
     );
   }
 
-  const items = itemsData?.items || [];
+  const allItems = itemsData?.items || [];
   const summary = itemsData?.summary || {};
+
+  // Filter items by selected categories (client-side)
+  const items = selectedCategories.length > 0
+    ? allItems.filter(item => selectedCategories.includes(item.category_id))
+    : allItems;
 
   const handleDeleteItem = (item: EstimateItem, force: boolean = false) => {
     const hasActuals = item.has_actuals && item.has_actuals > 0;
@@ -246,19 +242,17 @@ const EstimateDetails: React.FC = () => {
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <div className="flex items-center space-x-4">
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="block rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            title="Filter items by category"
-          >
-            <option value="">All Categories</option>
-            {categories?.map((category) => (
-              <option key={category.category_id} value={category.category_id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+          <CategoryFilter
+            selectedCategories={selectedCategories}
+            onCategoryChange={setSelectedCategories}
+            multiple={true}
+            placeholder="All Categories"
+          />
+          {selectedCategories.length > 0 && (
+            <span className="text-sm text-gray-600">
+              Showing {items.length} item{items.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
         <button
           onClick={() => setShowAddItemModal(true)}
